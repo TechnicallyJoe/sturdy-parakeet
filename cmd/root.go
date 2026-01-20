@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/TechnicallyJoe/sturdy-parakeet/internal/config"
 	"github.com/TechnicallyJoe/sturdy-parakeet/internal/finder"
@@ -18,9 +19,10 @@ var (
 	runner *terraform.Runner
 
 	// Flags
-	pathFlag string
-	initFlag bool
-	argsFlag []string
+	pathFlag   string
+	initFlag   bool
+	argsFlag   []string
+	searchFlag string
 )
 
 // rootCmd represents the base command
@@ -133,6 +135,101 @@ var configCmd = &cobra.Command{
 	},
 }
 
+// listCmd represents the list command
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all modules (components, bases, and projects)",
+	Long: `List all modules found in components, bases, and projects directories.
+
+Use the --search/-s flag to filter modules using wildcards.
+Examples:
+  tfpl list                    # List all modules
+  tfpl list -s storage         # List modules containing "storage"
+  tfpl list -s *account*       # List modules with "account" anywhere in the name
+  tfpl list -s storage-*       # List modules starting with "storage-"`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Determine base search path based on cfg.Root
+		var basePath string
+		if cfg.Root != "" {
+			if filepath.IsAbs(cfg.Root) {
+				basePath = cfg.Root
+			} else {
+				wd, err := os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to get working directory: %w", err)
+				}
+				basePath = filepath.Join(wd, cfg.Root)
+			}
+		} else {
+			wd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get working directory: %w", err)
+			}
+			basePath = wd
+		}
+
+		// Search in all three directories
+		moduleTypes := []string{"components", "bases", "projects"}
+		allModules := make(map[string][]string) // module name -> list of paths
+		
+		for _, moduleType := range moduleTypes {
+			searchPath := filepath.Join(basePath, moduleType)
+			
+			// Skip if directory doesn't exist
+			if _, err := os.Stat(searchPath); os.IsNotExist(err) {
+				continue
+			}
+			
+			// List all modules in this directory
+			modules, err := finder.ListAllModules(searchPath)
+			if err != nil {
+				return fmt.Errorf("failed to list modules in %s: %w", moduleType, err)
+			}
+			
+			// Group by module name and apply search filter
+			for name, path := range modules {
+				// Apply search filter if specified
+				if searchFlag != "" && !finder.MatchesWildcard(name, searchFlag) {
+					continue
+				}
+				
+				allModules[name] = append(allModules[name], path)
+			}
+		}
+
+		if len(allModules) == 0 {
+			if searchFlag != "" {
+				fmt.Printf("No modules found matching '%s'\n", searchFlag)
+			} else {
+				fmt.Println("No modules found")
+			}
+			return nil
+		}
+
+		// Print modules grouped by type
+		fmt.Println("Found modules:")
+		
+		// Sort and print
+		for name, paths := range allModules {
+			for _, path := range paths {
+				// Determine the type based on the path
+				moduleType := ""
+				if strings.Contains(path, "/components/") || strings.Contains(path, "\\components\\") {
+					moduleType = "component"
+				} else if strings.Contains(path, "/bases/") || strings.Contains(path, "\\bases\\") {
+					moduleType = "base"
+				} else if strings.Contains(path, "/projects/") || strings.Contains(path, "\\projects\\") {
+					moduleType = "project"
+				}
+				
+				fmt.Printf("  %-15s  [%s]  %s\n", name, moduleType, path)
+			}
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	// Add persistent flags
 	rootCmd.PersistentFlags().StringVar(&pathFlag, "path", "", "Explicit path (mutually exclusive with module name)")
@@ -142,11 +239,15 @@ func init() {
 	fmtCmd.Flags().BoolVarP(&initFlag, "init", "i", false, "Run init before the command")
 	valCmd.Flags().BoolVarP(&initFlag, "init", "i", false, "Run init before the command")
 
+	// Add search flag for list command
+	listCmd.Flags().StringVarP(&searchFlag, "search", "s", "", "Filter modules using wildcards (e.g., *storage*)")
+
 	// Add subcommands
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(fmtCmd)
 	rootCmd.AddCommand(valCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(listCmd)
 }
 
 // Execute runs the root command
