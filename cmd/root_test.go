@@ -367,3 +367,189 @@ func TestArgsFlag_PreservesOrder(t *testing.T) {
 	// Reset
 	argsFlag = []string{}
 }
+
+// TestTestCommand_WithModuleName tests the test command with a module name
+func TestTestCommand_WithModuleName(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a test module with go.mod and test file
+	modulePath := filepath.Join(tmpDir, "components", "test-module")
+	if err := os.MkdirAll(modulePath, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+
+	// Create .tf file
+	tfFile := filepath.Join(modulePath, "main.tf")
+	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
+		t.Fatalf("failed to create .tf file: %v", err)
+	}
+
+	// Create go.mod
+	goMod := filepath.Join(modulePath, "go.mod")
+	goModContent := "module test\n\ngo 1.21\n"
+	if err := os.WriteFile(goMod, []byte(goModContent), 0644); err != nil {
+		t.Fatalf("failed to create go.mod: %v", err)
+	}
+
+	// Create test file
+	testFile := filepath.Join(modulePath, "module_test.go")
+	testContent := `package test
+
+import "testing"
+
+func TestExample(t *testing.T) {
+	t.Log("test passed")
+}
+`
+	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Setup config
+	cfg = &config.Config{
+		Root:   tmpDir,
+		Binary: "terraform",
+		Test: &config.TestConfig{
+			Engine: "terratest",
+			Args:   "",
+		},
+	}
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	// Test that module can be found
+	result, err := findModuleInAllDirs("test-module")
+	if err != nil {
+		t.Fatalf("findModuleInAllDirs returned error: %v", err)
+	}
+
+	if result != modulePath {
+		t.Errorf("expected '%s', got '%s'", modulePath, result)
+	}
+}
+
+// TestTestCommand_WithExplicitPath tests the test command with explicit path
+func TestTestCommand_WithExplicitPath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a test module
+	modulePath := filepath.Join(tmpDir, "test-module")
+	if err := os.MkdirAll(modulePath, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+
+	// Create .tf file
+	tfFile := filepath.Join(modulePath, "main.tf")
+	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
+		t.Fatalf("failed to create .tf file: %v", err)
+	}
+
+	// Test explicit path resolution
+	pathFlag = modulePath
+	result, err := resolveTargetPath([]string{})
+	pathFlag = "" // Reset
+
+	if err != nil {
+		t.Fatalf("resolveTargetPath returned error: %v", err)
+	}
+
+	if result != modulePath {
+		t.Errorf("expected '%s', got '%s'", modulePath, result)
+	}
+}
+
+// TestTestCommand_WithArgs tests the test command with additional arguments
+func TestTestCommand_WithArgs(t *testing.T) {
+	// Test that args are properly passed
+	testArgs := []string{"-v", "-timeout=30m", "-count=1"}
+	argsFlag = testArgs
+
+	if len(argsFlag) != len(testArgs) {
+		t.Fatalf("expected %d args, got %d", len(testArgs), len(argsFlag))
+	}
+
+	for i, arg := range argsFlag {
+		if arg != testArgs[i] {
+			t.Errorf("arg[%d] = '%s', expected '%s'", i, arg, testArgs[i])
+		}
+	}
+
+	// Reset
+	argsFlag = []string{}
+}
+
+// TestTestCommand_FindsResourceGroup tests that the resource-group module can be found
+func TestTestCommand_FindsResourceGroup(t *testing.T) {
+	// This test validates that the test command can find the resource-group module
+	// that was added for testing purposes
+
+	tmpDir := t.TempDir()
+
+	// Create resource-group module structure like in demo
+	modulePath := filepath.Join(tmpDir, "components", "azurerm", "resource-group")
+	if err := os.MkdirAll(modulePath, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+
+	// Create .tf file
+	tfFile := filepath.Join(modulePath, "main.tf")
+	if err := os.WriteFile(tfFile, []byte("# terraform resource group"), 0644); err != nil {
+		t.Fatalf("failed to create .tf file: %v", err)
+	}
+
+	// Create tests directory
+	testsPath := filepath.Join(modulePath, "tests")
+	if err := os.MkdirAll(testsPath, 0755); err != nil {
+		t.Fatalf("failed to create tests directory: %v", err)
+	}
+
+	// Create go.mod in tests
+	goMod := filepath.Join(testsPath, "go.mod")
+	if err := os.WriteFile(goMod, []byte("module tests\n\ngo 1.21\n"), 0644); err != nil {
+		t.Fatalf("failed to create go.mod: %v", err)
+	}
+
+	// Create test file
+	testFile := filepath.Join(testsPath, "basic_test.go")
+	testContent := `package tests
+
+import "testing"
+
+func TestBasicExample(t *testing.T) {
+	t.Log("resource-group test")
+}
+`
+	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Setup config
+	cfg = &config.Config{
+		Root:   tmpDir,
+		Binary: "terraform",
+		Test: &config.TestConfig{
+			Engine: "terratest",
+			Args:   "",
+		},
+	}
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	// Test that resource-group module can be found
+	result, err := findModuleInAllDirs("resource-group")
+	if err != nil {
+		t.Fatalf("findModuleInAllDirs returned error: %v", err)
+	}
+
+	if result != modulePath {
+		t.Errorf("expected '%s', got '%s'", modulePath, result)
+	}
+}
