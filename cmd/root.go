@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/TechnicallyJoe/sturdy-parakeet/internal/config"
 	"github.com/TechnicallyJoe/sturdy-parakeet/internal/finder"
@@ -18,12 +19,10 @@ var (
 	runner *terraform.Runner
 
 	// Flags
-	componentFlag string
-	baseFlag      string
-	projectFlag   string
-	pathFlag      string
-	initFlag      bool
-	argsFlag      []string
+	pathFlag   string
+	initFlag   bool
+	argsFlag   []string
+	searchFlag string
 )
 
 // rootCmd represents the base command
@@ -35,12 +34,12 @@ var rootCmd = &cobra.Command{
 
 It supports running terraform/tofu commands on components, bases, and projects organized
 in a polylith structure.`,
-	Example: `  tfpl fmt -c storage-account      # Run fmt on component storage-account
-  tfpl val -b k8s-argocd           # Run validate on base k8s-argocd
-  tfpl val -i -b k8s-argocd        # Run init then validate on base k8s-argocd
-  tfpl init -b k8s-argocd          # Run init on base k8s-argocd
+	Example: `  tfpl fmt storage-account         # Run fmt on storage-account (searches all types)
+  tfpl val k8s-argocd              # Run validate on k8s-argocd
+  tfpl val -i k8s-argocd           # Run init then validate on k8s-argocd
+  tfpl init k8s-argocd             # Run init on k8s-argocd
   tfpl fmt --path iac/components/azurerm/storage-account  # Run fmt on explicit path
-  tfpl init -c storage-account -a -upgrade -a -reconfigure  # Run init with extra args`,
+  tfpl init storage-account -a -upgrade -a -reconfigure  # Run init with extra args`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Load configuration
 		wd, err := os.Getwd()
@@ -62,10 +61,11 @@ in a polylith structure.`,
 
 // initCmd represents the init command
 var initCmd = &cobra.Command{
-	Use:   "init",
+	Use:   "init [module-name]",
 	Short: "Run terraform/tofu init on a component, base, or project",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		targetPath, err := resolveTargetPath()
+		targetPath, err := resolveTargetPath(args)
 		if err != nil {
 			return err
 		}
@@ -76,10 +76,11 @@ var initCmd = &cobra.Command{
 
 // fmtCmd represents the fmt command
 var fmtCmd = &cobra.Command{
-	Use:   "fmt",
+	Use:   "fmt [module-name]",
 	Short: "Run terraform/tofu fmt on a component, base, or project",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		targetPath, err := resolveTargetPath()
+		targetPath, err := resolveTargetPath(args)
 		if err != nil {
 			return err
 		}
@@ -97,11 +98,12 @@ var fmtCmd = &cobra.Command{
 
 // valCmd represents the validate command
 var valCmd = &cobra.Command{
-	Use:     "val",
+	Use:     "val [module-name]",
 	Aliases: []string{"validate"},
 	Short:   "Run terraform/tofu validate on a component, base, or project",
+	Args:    cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		targetPath, err := resolveTargetPath()
+		targetPath, err := resolveTargetPath(args)
 		if err != nil {
 			return err
 		}
@@ -125,26 +127,188 @@ var configCmd = &cobra.Command{
 		fmt.Println("Current configuration:")
 		fmt.Printf("  Root:   %s\n", cfg.Root)
 		fmt.Printf("  Binary: %s\n", cfg.Binary)
+		if cfg.ConfigPath != "" {
+			fmt.Printf("  Config: %s\n", cfg.ConfigPath)
+		} else {
+			fmt.Printf("  Config: (using defaults)\n")
+		}
+	},
+}
+
+// listCmd represents the list command
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all modules (components, bases, and projects)",
+	Long: `List all modules found in components, bases, and projects directories.
+
+Use the --search/-s flag to filter modules using wildcards.
+Examples:
+  tfpl list                    # List all modules
+  tfpl list -s storage         # List modules containing "storage"
+  tfpl list -s *account*       # List modules with "account" anywhere in the name
+  tfpl list -s storage-*       # List modules starting with "storage-"`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Determine base search path based on cfg.Root
+		var basePath string
+		if cfg.Root != "" {
+			if filepath.IsAbs(cfg.Root) {
+				basePath = cfg.Root
+			} else {
+				wd, err := os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to get working directory: %w", err)
+				}
+				basePath = filepath.Join(wd, cfg.Root)
+			}
+		} else {
+			wd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get working directory: %w", err)
+			}
+			basePath = wd
+		}
+
+		// Module info structure
+		type ModuleInfo struct {
+			Name    string
+			Type    string
+			Path    string
+			Version string
+		}
+
+		// Search in all three directories
+		moduleTypes := []string{"components", "bases", "projects"}
+		var allModules []ModuleInfo
+		
+		for _, moduleType := range moduleTypes {
+			searchPath := filepath.Join(basePath, moduleType)
+			
+			// Skip if directory doesn't exist
+			if _, err := os.Stat(searchPath); os.IsNotExist(err) {
+				continue
+			}
+			
+			// List all modules in this directory
+			modules, err := finder.ListAllModules(searchPath)
+			if err != nil {
+				return fmt.Errorf("failed to list modules in %s: %w", moduleType, err)
+			}
+			
+			// Process each module
+			for name, path := range modules {
+				// Apply search filter if specified
+				if searchFlag != "" && !finder.MatchesWildcard(name, searchFlag) {
+					continue
+				}
+				
+				// Determine the type based on the path
+				modType := ""
+				if strings.Contains(path, "/components/") || strings.Contains(path, "\\components\\") {
+					modType = "component"
+				} else if strings.Contains(path, "/bases/") || strings.Contains(path, "\\bases\\") {
+					modType = "base"
+				} else if strings.Contains(path, "/projects/") || strings.Contains(path, "\\projects\\") {
+					modType = "project"
+				}
+				
+				// Make path relative to basePath
+				relativePath, err := filepath.Rel(basePath, path)
+				if err != nil {
+					relativePath = path // Fallback to full path if relative fails
+				}
+				
+				// Try to read module_version from .spacelift/config.yml
+				version := ""
+				spaceliftConfig := filepath.Join(path, ".spacelift", "config.yml")
+				if data, err := os.ReadFile(spaceliftConfig); err == nil {
+					// Simple parsing: look for "module_version: X.Y.Z"
+					lines := strings.Split(string(data), "\n")
+					for _, line := range lines {
+						line = strings.TrimSpace(line)
+						if strings.HasPrefix(line, "module_version:") {
+							parts := strings.SplitN(line, ":", 2)
+							if len(parts) == 2 {
+								version = strings.TrimSpace(parts[1])
+								break
+							}
+						}
+					}
+				}
+				
+				allModules = append(allModules, ModuleInfo{
+					Name:    name,
+					Type:    modType,
+					Path:    relativePath,
+					Version: version,
+				})
+			}
+		}
+
+		if len(allModules) == 0 {
+			if searchFlag != "" {
+				fmt.Printf("No modules found matching '%s'\n", searchFlag)
+			} else {
+				fmt.Println("No modules found")
+			}
+			return nil
+		}
+
+		// Sort by type (component, base, project) then alphabetically by name
+		// Define type order
+		typeOrder := map[string]int{
+			"component": 1,
+			"base":      2,
+			"project":   3,
+		}
+		
+		// Sort the modules
+		for i := 0; i < len(allModules); i++ {
+			for j := i + 1; j < len(allModules); j++ {
+				// First compare by type
+				if typeOrder[allModules[i].Type] > typeOrder[allModules[j].Type] {
+					allModules[i], allModules[j] = allModules[j], allModules[i]
+				} else if typeOrder[allModules[i].Type] == typeOrder[allModules[j].Type] {
+					// Then compare by name
+					if allModules[i].Name > allModules[j].Name {
+						allModules[i], allModules[j] = allModules[j], allModules[i]
+					}
+				}
+			}
+		}
+
+		// Print modules
+		fmt.Println("Found modules:")
+		
+		for _, mod := range allModules {
+			versionStr := ""
+			if mod.Version != "" {
+				versionStr = fmt.Sprintf(" (v%s)", mod.Version)
+			}
+			fmt.Printf("  %-20s [%-9s]  %s%s\n", mod.Name, mod.Type, mod.Path, versionStr)
+		}
+
+		return nil
 	},
 }
 
 func init() {
 	// Add persistent flags
-	rootCmd.PersistentFlags().StringVarP(&componentFlag, "component", "c", "", "Component name to operate on")
-	rootCmd.PersistentFlags().StringVarP(&baseFlag, "base", "b", "", "Base name to operate on")
-	rootCmd.PersistentFlags().StringVarP(&projectFlag, "project", "p", "", "Project name to operate on")
-	rootCmd.PersistentFlags().StringVar(&pathFlag, "path", "", "Explicit path (mutually exclusive with -c, -b, -p)")
+	rootCmd.PersistentFlags().StringVar(&pathFlag, "path", "", "Explicit path (mutually exclusive with module name)")
 	rootCmd.PersistentFlags().StringArrayVarP(&argsFlag, "args", "a", []string{}, "Extra arguments to pass to terraform/tofu (can be specified multiple times)")
 
 	// Add init flag for fmt and val commands
 	fmtCmd.Flags().BoolVarP(&initFlag, "init", "i", false, "Run init before the command")
 	valCmd.Flags().BoolVarP(&initFlag, "init", "i", false, "Run init before the command")
 
+	// Add search flag for list command
+	listCmd.Flags().StringVarP(&searchFlag, "search", "s", "", "Filter modules using wildcards (e.g., *storage*)")
+
 	// Add subcommands
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(fmtCmd)
 	rootCmd.AddCommand(valCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(listCmd)
 }
 
 // Execute runs the root command
@@ -152,32 +316,16 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-// resolveTargetPath resolves the target path based on flags
-func resolveTargetPath() (string, error) {
-	// Validate mutual exclusivity
-	flagsSet := 0
-	if componentFlag != "" {
-		flagsSet++
-	}
-	if baseFlag != "" {
-		flagsSet++
-	}
-	if projectFlag != "" {
-		flagsSet++
-	}
-	if pathFlag != "" {
-		flagsSet++
+// resolveTargetPath resolves the target path based on args and flags
+func resolveTargetPath(args []string) (string, error) {
+	// Check if both module name and --path are specified
+	if len(args) > 0 && pathFlag != "" {
+		return "", fmt.Errorf("--path is mutually exclusive with module name argument")
 	}
 
-	if flagsSet == 0 {
-		return "", fmt.Errorf("must specify one of: --component/-c, --base/-b, --project/-p, or --path")
-	}
-
-	if flagsSet > 1 {
-		if pathFlag != "" {
-			return "", fmt.Errorf("--path is mutually exclusive with --component/-c, --base/-b, and --project/-p")
-		}
-		return "", fmt.Errorf("only one of --component/-c, --base/-b, or --project/-p can be specified at a time")
+	// Check if neither module name nor --path is specified
+	if len(args) == 0 && pathFlag == "" {
+		return "", fmt.Errorf("must specify either a module name or --path")
 	}
 
 	// If explicit path is provided, use it directly
@@ -185,21 +333,11 @@ func resolveTargetPath() (string, error) {
 		return resolveExplicitPath(pathFlag)
 	}
 
-	// Determine module type and name
-	var moduleType, moduleName string
-	if componentFlag != "" {
-		moduleType = "components"
-		moduleName = componentFlag
-	} else if baseFlag != "" {
-		moduleType = "bases"
-		moduleName = baseFlag
-	} else if projectFlag != "" {
-		moduleType = "projects"
-		moduleName = projectFlag
-	}
+	// Use the module name from args
+	moduleName := args[0]
 
-	// Find the module
-	return findModule(moduleType, moduleName)
+	// Search for the module in all directories
+	return findModuleInAllDirs(moduleName)
 }
 
 // resolveExplicitPath resolves an explicit path (can be relative or absolute)
@@ -218,50 +356,58 @@ func resolveExplicitPath(path string) (string, error) {
 	return absPath, nil
 }
 
-// findModule finds a module by type and name
-func findModule(moduleType, moduleName string) (string, error) {
-	// Determine search path based on cfg.Root
-	var searchPath string
+// findModuleInAllDirs searches for a module across all three directories (components, bases, projects)
+func findModuleInAllDirs(moduleName string) (string, error) {
+	// Determine base search path based on cfg.Root
+	var basePath string
 	if cfg.Root != "" {
 		// cfg.Root can be an absolute path (git root) or relative path
 		if filepath.IsAbs(cfg.Root) {
-			searchPath = cfg.Root
+			basePath = cfg.Root
 		} else {
 			wd, err := os.Getwd()
 			if err != nil {
 				return "", fmt.Errorf("failed to get working directory: %w", err)
 			}
-			searchPath = filepath.Join(wd, cfg.Root)
+			basePath = filepath.Join(wd, cfg.Root)
 		}
 	} else {
 		wd, err := os.Getwd()
 		if err != nil {
 			return "", fmt.Errorf("failed to get working directory: %w", err)
 		}
-		searchPath = wd
-	}
-	searchPath = filepath.Join(searchPath, moduleType)
-
-	// Check if search path exists
-	if _, err := os.Stat(searchPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("%s directory does not exist: %s", moduleType, searchPath)
+		basePath = wd
 	}
 
-	// Find the module
-	matches, err := finder.FindModule(searchPath, moduleName)
-	if err != nil {
-		return "", fmt.Errorf("failed to search for module: %w", err)
+	// Search in all three directories
+	moduleTypes := []string{"components", "bases", "projects"}
+	var allMatches []string
+	
+	for _, moduleType := range moduleTypes {
+		searchPath := filepath.Join(basePath, moduleType)
+		
+		// Skip if directory doesn't exist
+		if _, err := os.Stat(searchPath); os.IsNotExist(err) {
+			continue
+		}
+		
+		// Find the module
+		matches, err := finder.FindModule(searchPath, moduleName)
+		if err != nil {
+			return "", fmt.Errorf("failed to search for module in %s: %w", moduleType, err)
+		}
+		
+		allMatches = append(allMatches, matches...)
 	}
 
-	if len(matches) == 0 {
-		return "", fmt.Errorf("%s '%s' not found in %s", moduleType[:len(moduleType)-1], moduleName, searchPath)
+	if len(allMatches) == 0 {
+		return "", fmt.Errorf("module '%s' not found in components, bases, or projects", moduleName)
 	}
 
-	if len(matches) > 1 {
-		// Name clash detected
-		moduleTypeSingular := moduleType[:len(moduleType)-1]
-		fmt.Fprintf(os.Stderr, "Error: multiple %ss named '%s' found - name clash detected:\n", moduleTypeSingular, moduleName)
-		for i, match := range matches {
+	if len(allMatches) > 1 {
+		// Name clash detected across multiple directories
+		fmt.Fprintf(os.Stderr, "Error: multiple modules named '%s' found - name clash detected:\n", moduleName)
+		for i, match := range allMatches {
 			fmt.Fprintf(os.Stderr, "  %d. %s\n", i+1, match)
 		}
 		fmt.Fprintln(os.Stderr)
@@ -269,5 +415,5 @@ func findModule(moduleType, moduleName string) (string, error) {
 		return "", fmt.Errorf("name clash detected")
 	}
 
-	return matches[0], nil
+	return allMatches[0], nil
 }

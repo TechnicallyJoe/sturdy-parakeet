@@ -242,3 +242,87 @@ func TestHasTerraformFiles_NonExistentDir(t *testing.T) {
 		t.Error("expected false for non-existent directory")
 	}
 }
+
+func TestListAllModules(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create multiple modules
+	modules := []string{
+		filepath.Join(tmpDir, "azurerm", "storage-account"),
+		filepath.Join(tmpDir, "azurerm", "key-vault"),
+		filepath.Join(tmpDir, "aws", "s3-bucket"),
+	}
+
+	for _, path := range modules {
+		if err := os.MkdirAll(path, 0755); err != nil {
+			t.Fatalf("failed to create module directory: %v", err)
+		}
+		tfFile := filepath.Join(path, "main.tf")
+		if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
+			t.Fatalf("failed to create .tf file: %v", err)
+		}
+	}
+
+	result, err := ListAllModules(tmpDir)
+	if err != nil {
+		t.Fatalf("ListAllModules returned error: %v", err)
+	}
+
+	if len(result) != 3 {
+		t.Errorf("expected 3 modules, got %d", len(result))
+	}
+
+	// Check that all expected modules are present
+	expectedNames := []string{"storage-account", "key-vault", "s3-bucket"}
+	for _, name := range expectedNames {
+		if _, exists := result[name]; !exists {
+			t.Errorf("expected module '%s' not found", name)
+		}
+	}
+}
+
+func TestMatchesWildcard(t *testing.T) {
+	tests := []struct {
+		name     string
+		pattern  string
+		expected bool
+	}{
+		// Exact matches
+		{"storage-account", "storage-account", true},
+		{"storage-account", "storage", false},
+		
+		// Wildcards at the end
+		{"storage-account", "storage-*", true},
+		{"storage-account", "key-*", false},
+		
+		// Wildcards at the start
+		{"storage-account", "*account", true},
+		{"storage-account", "*vault", false},
+		
+		// Wildcards in the middle
+		{"storage-account", "storage*account", true},
+		{"storage-account", "key*account", false},
+		
+		// Multiple wildcards
+		{"my-storage-account", "*storage*", true},
+		{"my-storage-account", "*key*", false},
+		
+		// Only wildcard
+		{"storage-account", "*", true},
+		{"anything", "*", true},
+		
+		// Multiple wildcards at various positions
+		{"prod-storage-account-east", "prod*storage*east", true},
+		{"prod-storage-account-west", "prod*storage*east", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+"_with_"+tt.pattern, func(t *testing.T) {
+			result := MatchesWildcard(tt.name, tt.pattern)
+			if result != tt.expected {
+				t.Errorf("MatchesWildcard(%q, %q) = %v, expected %v", 
+					tt.name, tt.pattern, result, tt.expected)
+			}
+		})
+	}
+}

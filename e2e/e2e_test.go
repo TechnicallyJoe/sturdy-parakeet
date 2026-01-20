@@ -93,7 +93,7 @@ func TestE2E_FmtComponent(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Run fmt on storage-account component
-	cmd := exec.Command(tfplBinary, "fmt", "-c", "storage-account")
+	cmd := exec.Command(tfplBinary, "fmt", "storage-account")
 	cmd.Dir = demoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -113,7 +113,7 @@ func TestE2E_FmtNestedComponent(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Run fmt on key-vault component (nested under azurerm)
-	cmd := exec.Command(tfplBinary, "fmt", "-c", "key-vault")
+	cmd := exec.Command(tfplBinary, "fmt", "key-vault")
 	cmd.Dir = demoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -133,7 +133,7 @@ func TestE2E_InitComponent(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Run init on storage-account
-	cmd := exec.Command(tfplBinary, "init", "-c", "storage-account")
+	cmd := exec.Command(tfplBinary, "init", "storage-account")
 	cmd.Dir = demoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -157,11 +157,11 @@ func TestE2E_InitBase(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Run init on k8s-argocd base
-	cmd := exec.Command(tfplBinary, "init", "-b", "k8s-argocd")
+	cmd := exec.Command(tfplBinary, "init", "k8s-argocd")
 	cmd.Dir = demoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("tfpl init -b failed: %v\nOutput: %s", err, output)
+		t.Fatalf("tfpl init failed: %v\nOutput: %s", err, output)
 	}
 
 	outputStr := string(output)
@@ -181,11 +181,11 @@ func TestE2E_InitProject(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Run init on prod-infra project
-	cmd := exec.Command(tfplBinary, "init", "-p", "prod-infra")
+	cmd := exec.Command(tfplBinary, "init", "prod-infra")
 	cmd.Dir = demoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("tfpl init -p failed: %v\nOutput: %s", err, output)
+		t.Fatalf("tfpl init failed: %v\nOutput: %s", err, output)
 	}
 
 	outputStr := string(output)
@@ -205,7 +205,7 @@ func TestE2E_ValidateComponent(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Run validate with init flag
-	cmd := exec.Command(tfplBinary, "val", "-i", "-c", "storage-account")
+	cmd := exec.Command(tfplBinary, "val", "-i", "storage-account")
 	cmd.Dir = demoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -231,11 +231,11 @@ func TestE2E_ValidateBase(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Run validate with init flag on base
-	cmd := exec.Command(tfplBinary, "val", "-i", "-b", "k8s-argocd")
+	cmd := exec.Command(tfplBinary, "val", "-i", "k8s-argocd")
 	cmd.Dir = demoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("tfpl val -i -b failed: %v\nOutput: %s", err, output)
+		t.Fatalf("tfpl val -i failed: %v\nOutput: %s", err, output)
 	}
 
 	if !strings.Contains(string(output), "k8s-argocd") {
@@ -283,6 +283,13 @@ func TestE2E_ConfigCommand(t *testing.T) {
 	if !strings.Contains(outputStr, "terraform") {
 		t.Error("config output should contain 'terraform'")
 	}
+	if !strings.Contains(outputStr, "Config:") {
+		t.Error("config output should contain 'Config:'")
+	}
+	// Demo directory has a .tfpl.yml file, so it should show the path
+	if !strings.Contains(outputStr, ".tfpl.yml") {
+		t.Error("config output should contain '.tfpl.yml' path")
+	}
 }
 
 func TestE2E_ArgsFlag(t *testing.T) {
@@ -292,7 +299,7 @@ func TestE2E_ArgsFlag(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Run fmt with extra args
-	cmd := exec.Command(tfplBinary, "fmt", "-c", "storage-account", "-a", "-check")
+	cmd := exec.Command(tfplBinary, "fmt", "storage-account", "-a", "-check")
 	cmd.Dir = demoPath
 	output, _ := cmd.CombinedOutput()
 
@@ -310,7 +317,7 @@ func TestE2E_MultipleArgsFlag(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Run init with multiple args
-	cmd := exec.Command(tfplBinary, "init", "-c", "storage-account", "-a", "-upgrade", "-a", "-reconfigure")
+	cmd := exec.Command(tfplBinary, "init", "storage-account", "-a", "-upgrade", "-a", "-reconfigure")
 	cmd.Dir = demoPath
 	output, _ := cmd.CombinedOutput()
 
@@ -328,7 +335,7 @@ func TestE2E_ModuleNotFound(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Try to run on a non-existent component
-	cmd := exec.Command(tfplBinary, "init", "-c", "nonexistent-component")
+	cmd := exec.Command(tfplBinary, "init", "nonexistent-component")
 	cmd.Dir = demoPath
 	output, err := cmd.CombinedOutput()
 
@@ -363,17 +370,17 @@ func TestE2E_MutuallyExclusiveFlags(t *testing.T) {
 	tfplBinary := buildTfpl(t)
 	demoPath := getDemoPath(t)
 
-	// Try to use both -c and -b
-	cmd := exec.Command(tfplBinary, "init", "-c", "storage-account", "-b", "k8s-argocd")
+	// Try to use both module name and --path
+	cmd := exec.Command(tfplBinary, "init", "storage-account", "--path", "components/azurerm/key-vault")
 	cmd.Dir = demoPath
 	output, err := cmd.CombinedOutput()
 
 	if err == nil {
-		t.Error("expected error when multiple target flags specified")
+		t.Error("expected error when module name and --path are both specified")
 	}
 
 	outputStr := string(output)
-	if !strings.Contains(outputStr, "only one") && !strings.Contains(outputStr, "mutually exclusive") {
+	if !strings.Contains(outputStr, "mutually exclusive") {
 		t.Errorf("expected mutual exclusivity error, got: %s", outputStr)
 	}
 }
@@ -406,17 +413,8 @@ func TestE2E_HelpFlag(t *testing.T) {
 	if !strings.Contains(outputStr, "Terraform Polylith") {
 		t.Error("help output should contain 'Terraform Polylith'")
 	}
-	if !strings.Contains(outputStr, "--component") {
-		t.Error("help output should contain '--component'")
-	}
 	if !strings.Contains(outputStr, "--args") {
 		t.Error("help output should contain '--args'")
-	}
-	if !strings.Contains(outputStr, "--base") {
-		t.Error("help output should contain '--base'")
-	}
-	if !strings.Contains(outputStr, "--project") {
-		t.Error("help output should contain '--project'")
 	}
 }
 
@@ -448,7 +446,7 @@ func TestE2E_ValidateAlias(t *testing.T) {
 	demoPath := getDemoPath(t)
 
 	// Use 'validate' alias instead of 'val'
-	cmd := exec.Command(tfplBinary, "validate", "-i", "-c", "storage-account")
+	cmd := exec.Command(tfplBinary, "validate", "-i", "storage-account")
 	cmd.Dir = demoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -469,7 +467,7 @@ func TestE2E_WorksFromSubdirectory(t *testing.T) {
 	// Run from a subdirectory within demo
 	subDir := filepath.Join(demoPath, "components", "azurerm")
 
-	cmd := exec.Command(tfplBinary, "fmt", "-c", "key-vault")
+	cmd := exec.Command(tfplBinary, "fmt", "key-vault")
 	cmd.Dir = subDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -507,7 +505,7 @@ func TestE2E_TofuFmt(t *testing.T) {
 	}
 
 	// Run fmt with tofu
-	cmd := exec.Command(tfplBinary, "fmt", "-c", "test-component")
+	cmd := exec.Command(tfplBinary, "fmt", "test-component")
 	cmd.Dir = tmpDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -546,7 +544,7 @@ func TestE2E_TofuInit(t *testing.T) {
 	}
 
 	// Run init with tofu
-	cmd := exec.Command(tfplBinary, "init", "-c", "test-component")
+	cmd := exec.Command(tfplBinary, "init", "test-component")
 	cmd.Dir = tmpDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
