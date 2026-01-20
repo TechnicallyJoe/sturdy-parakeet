@@ -34,48 +34,25 @@ func TestResolveExplicitPath_NonExistent(t *testing.T) {
 	}
 }
 
-func TestResolveTargetPath_NoFlags(t *testing.T) {
-	// Reset all flags
-	componentFlag = ""
-	baseFlag = ""
-	projectFlag = ""
+func TestResolveTargetPath_NoArgs(t *testing.T) {
+	// Reset path flag
 	pathFlag = ""
 
-	_, err := resolveTargetPath()
+	_, err := resolveTargetPath([]string{})
 	if err == nil {
-		t.Error("expected error when no flags are set")
+		t.Error("expected error when no args are provided")
 	}
-}
-
-func TestResolveTargetPath_MultipleFlags(t *testing.T) {
-	componentFlag = "storage"
-	baseFlag = "k8s"
-	projectFlag = ""
-	pathFlag = ""
-
-	_, err := resolveTargetPath()
-	if err == nil {
-		t.Error("expected error when multiple flags are set")
-	}
-
-	// Reset
-	componentFlag = ""
-	baseFlag = ""
 }
 
 func TestResolveTargetPath_PathMutuallyExclusive(t *testing.T) {
-	componentFlag = "storage"
-	baseFlag = ""
-	projectFlag = ""
 	pathFlag = "/some/path"
 
-	_, err := resolveTargetPath()
+	_, err := resolveTargetPath([]string{"storage"})
 	if err == nil {
-		t.Error("expected error when path is combined with other flags")
+		t.Error("expected error when path is combined with module name")
 	}
 
 	// Reset
-	componentFlag = ""
 	pathFlag = ""
 }
 
@@ -88,12 +65,9 @@ func TestResolveTargetPath_WithExplicitPath(t *testing.T) {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
 
-	componentFlag = ""
-	baseFlag = ""
-	projectFlag = ""
 	pathFlag = testPath
 
-	result, err := resolveTargetPath()
+	result, err := resolveTargetPath([]string{})
 	if err != nil {
 		t.Fatalf("resolveTargetPath returned error: %v", err)
 	}
@@ -106,7 +80,7 @@ func TestResolveTargetPath_WithExplicitPath(t *testing.T) {
 	pathFlag = ""
 }
 
-func TestFindModule_ComponentFound(t *testing.T) {
+func TestFindModuleInAllDirs_ComponentFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Set up cfg to point to tmpDir
@@ -135,9 +109,9 @@ func TestFindModule_ComponentFound(t *testing.T) {
 	}
 	defer os.Chdir(originalWd)
 
-	result, err := findModule("components", "storage-account")
+	result, err := findModuleInAllDirs("storage-account")
 	if err != nil {
-		t.Fatalf("findModule returned error: %v", err)
+		t.Fatalf("findModuleInAllDirs returned error: %v", err)
 	}
 
 	if result != modulePath {
@@ -145,7 +119,7 @@ func TestFindModule_ComponentFound(t *testing.T) {
 	}
 }
 
-func TestFindModule_ModuleNotFound(t *testing.T) {
+func TestFindModuleInAllDirs_BaseFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg = &config.Config{
@@ -153,10 +127,17 @@ func TestFindModule_ModuleNotFound(t *testing.T) {
 		Binary: "terraform",
 	}
 
-	// Create components directory without the module we're looking for
-	componentsDir := filepath.Join(tmpDir, "components")
-	if err := os.MkdirAll(componentsDir, 0755); err != nil {
-		t.Fatalf("failed to create components directory: %v", err)
+	// Create bases directory with a module
+	basesDir := filepath.Join(tmpDir, "bases")
+	modulePath := filepath.Join(basesDir, "k8s-argocd")
+	if err := os.MkdirAll(modulePath, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+
+	// Create .tf file
+	tfFile := filepath.Join(modulePath, "main.tf")
+	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
+		t.Fatalf("failed to create .tf file: %v", err)
 	}
 
 	originalWd, _ := os.Getwd()
@@ -165,13 +146,81 @@ func TestFindModule_ModuleNotFound(t *testing.T) {
 	}
 	defer os.Chdir(originalWd)
 
-	_, err := findModule("components", "nonexistent")
+	result, err := findModuleInAllDirs("k8s-argocd")
+	if err != nil {
+		t.Fatalf("findModuleInAllDirs returned error: %v", err)
+	}
+
+	if result != modulePath {
+		t.Errorf("expected '%s', got '%s'", modulePath, result)
+	}
+}
+
+func TestFindModuleInAllDirs_ProjectFound(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg = &config.Config{
+		Root:   "",
+		Binary: "terraform",
+	}
+
+	// Create projects directory with a module
+	projectsDir := filepath.Join(tmpDir, "projects")
+	modulePath := filepath.Join(projectsDir, "prod-infra")
+	if err := os.MkdirAll(modulePath, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+
+	// Create .tf file
+	tfFile := filepath.Join(modulePath, "main.tf")
+	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
+		t.Fatalf("failed to create .tf file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	result, err := findModuleInAllDirs("prod-infra")
+	if err != nil {
+		t.Fatalf("findModuleInAllDirs returned error: %v", err)
+	}
+
+	if result != modulePath {
+		t.Errorf("expected '%s', got '%s'", modulePath, result)
+	}
+}
+
+func TestFindModuleInAllDirs_ModuleNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg = &config.Config{
+		Root:   "",
+		Binary: "terraform",
+	}
+
+	// Create directories but without the module we're looking for
+	for _, dir := range []string{"components", "bases", "projects"} {
+		if err := os.MkdirAll(filepath.Join(tmpDir, dir), 0755); err != nil {
+			t.Fatalf("failed to create %s directory: %v", dir, err)
+		}
+	}
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	_, err := findModuleInAllDirs("nonexistent")
 	if err == nil {
 		t.Error("expected error for non-existent module")
 	}
 }
 
-func TestFindModule_DirectoryNotFound(t *testing.T) {
+func TestFindModuleInAllDirs_NoDirectories(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg = &config.Config{
@@ -179,20 +228,20 @@ func TestFindModule_DirectoryNotFound(t *testing.T) {
 		Binary: "terraform",
 	}
 
-	// Don't create the components directory
+	// Don't create any module directories
 	originalWd, _ := os.Getwd()
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("failed to change directory: %v", err)
 	}
 	defer os.Chdir(originalWd)
 
-	_, err := findModule("components", "any-module")
+	_, err := findModuleInAllDirs("any-module")
 	if err == nil {
-		t.Error("expected error when directory does not exist")
+		t.Error("expected error when directories do not exist")
 	}
 }
 
-func TestFindModule_WithConfigRoot(t *testing.T) {
+func TestFindModuleInAllDirs_WithConfigRoot(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Set cfg.Root to a subdirectory
@@ -218,9 +267,9 @@ func TestFindModule_WithConfigRoot(t *testing.T) {
 	}
 	defer os.Chdir(originalWd)
 
-	result, err := findModule("components", "storage-account")
+	result, err := findModuleInAllDirs("storage-account")
 	if err != nil {
-		t.Fatalf("findModule returned error: %v", err)
+		t.Fatalf("findModuleInAllDirs returned error: %v", err)
 	}
 
 	if result != modulePath {
@@ -228,7 +277,7 @@ func TestFindModule_WithConfigRoot(t *testing.T) {
 	}
 }
 
-func TestFindModule_NameClash(t *testing.T) {
+func TestFindModuleInAllDirs_NameClash(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg = &config.Config{
@@ -236,9 +285,9 @@ func TestFindModule_NameClash(t *testing.T) {
 		Binary: "terraform",
 	}
 
-	// Create two modules with the same name
+	// Create two modules with the same name in different directories
 	module1 := filepath.Join(tmpDir, "components", "azurerm", "storage-account")
-	module2 := filepath.Join(tmpDir, "components", "aws", "storage-account")
+	module2 := filepath.Join(tmpDir, "bases", "storage-account")
 
 	for _, path := range []string{module1, module2} {
 		if err := os.MkdirAll(path, 0755); err != nil {
@@ -256,7 +305,7 @@ func TestFindModule_NameClash(t *testing.T) {
 	}
 	defer os.Chdir(originalWd)
 
-	_, err := findModule("components", "storage-account")
+	_, err := findModuleInAllDirs("storage-account")
 	if err == nil {
 		t.Error("expected error for name clash")
 	}
