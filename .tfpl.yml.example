@@ -1,0 +1,10 @@
+# Example .tfpl.yml configuration file
+# Place this in your repository root
+
+# The root directory containing the polylith structure (components, bases, projects)
+# Default: "" (repository root)
+root: iac
+
+# The Terraform binary to use: "terraform" or "tofu"
+# Default: "terraform"
+binary: terraform
