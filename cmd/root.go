@@ -168,9 +168,17 @@ Examples:
 			basePath = wd
 		}
 
+		// Module info structure
+		type ModuleInfo struct {
+			Name    string
+			Type    string
+			Path    string
+			Version string
+		}
+
 		// Search in all three directories
 		moduleTypes := []string{"components", "bases", "projects"}
-		allModules := make(map[string][]string) // module name -> list of paths
+		var allModules []ModuleInfo
 		
 		for _, moduleType := range moduleTypes {
 			searchPath := filepath.Join(basePath, moduleType)
@@ -186,14 +194,53 @@ Examples:
 				return fmt.Errorf("failed to list modules in %s: %w", moduleType, err)
 			}
 			
-			// Group by module name and apply search filter
+			// Process each module
 			for name, path := range modules {
 				// Apply search filter if specified
 				if searchFlag != "" && !finder.MatchesWildcard(name, searchFlag) {
 					continue
 				}
 				
-				allModules[name] = append(allModules[name], path)
+				// Determine the type based on the path
+				modType := ""
+				if strings.Contains(path, "/components/") || strings.Contains(path, "\\components\\") {
+					modType = "component"
+				} else if strings.Contains(path, "/bases/") || strings.Contains(path, "\\bases\\") {
+					modType = "base"
+				} else if strings.Contains(path, "/projects/") || strings.Contains(path, "\\projects\\") {
+					modType = "project"
+				}
+				
+				// Make path relative to basePath
+				relativePath, err := filepath.Rel(basePath, path)
+				if err != nil {
+					relativePath = path // Fallback to full path if relative fails
+				}
+				
+				// Try to read module_version from .spacelift/config.yml
+				version := ""
+				spaceliftConfig := filepath.Join(path, ".spacelift", "config.yml")
+				if data, err := os.ReadFile(spaceliftConfig); err == nil {
+					// Simple parsing: look for "module_version: X.Y.Z"
+					lines := strings.Split(string(data), "\n")
+					for _, line := range lines {
+						line = strings.TrimSpace(line)
+						if strings.HasPrefix(line, "module_version:") {
+							parts := strings.SplitN(line, ":", 2)
+							if len(parts) == 2 {
+								version = strings.TrimSpace(parts[1])
+								break
+							}
+						}
+					}
+				}
+				
+				allModules = append(allModules, ModuleInfo{
+					Name:    name,
+					Type:    modType,
+					Path:    relativePath,
+					Version: version,
+				})
 			}
 		}
 
@@ -206,24 +253,38 @@ Examples:
 			return nil
 		}
 
-		// Print modules grouped by type
+		// Sort by type (component, base, project) then alphabetically by name
+		// Define type order
+		typeOrder := map[string]int{
+			"component": 1,
+			"base":      2,
+			"project":   3,
+		}
+		
+		// Sort the modules
+		for i := 0; i < len(allModules); i++ {
+			for j := i + 1; j < len(allModules); j++ {
+				// First compare by type
+				if typeOrder[allModules[i].Type] > typeOrder[allModules[j].Type] {
+					allModules[i], allModules[j] = allModules[j], allModules[i]
+				} else if typeOrder[allModules[i].Type] == typeOrder[allModules[j].Type] {
+					// Then compare by name
+					if allModules[i].Name > allModules[j].Name {
+						allModules[i], allModules[j] = allModules[j], allModules[i]
+					}
+				}
+			}
+		}
+
+		// Print modules
 		fmt.Println("Found modules:")
 		
-		// Sort and print
-		for name, paths := range allModules {
-			for _, path := range paths {
-				// Determine the type based on the path
-				moduleType := ""
-				if strings.Contains(path, "/components/") || strings.Contains(path, "\\components\\") {
-					moduleType = "component"
-				} else if strings.Contains(path, "/bases/") || strings.Contains(path, "\\bases\\") {
-					moduleType = "base"
-				} else if strings.Contains(path, "/projects/") || strings.Contains(path, "\\projects\\") {
-					moduleType = "project"
-				}
-				
-				fmt.Printf("  %-15s  [%s]  %s\n", name, moduleType, path)
+		for _, mod := range allModules {
+			versionStr := ""
+			if mod.Version != "" {
+				versionStr = fmt.Sprintf(" (v%s)", mod.Version)
 			}
+			fmt.Printf("  %-20s [%-9s]  %s%s\n", mod.Name, mod.Type, mod.Path, versionStr)
 		}
 
 		return nil
