@@ -220,16 +220,25 @@ func resolveExplicitPath(path string) (string, error) {
 
 // findModule finds a module by type and name
 func findModule(moduleType, moduleName string) (string, error) {
-	// Get working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
-	}
-
-	// Determine search path
-	searchPath := wd
+	// Determine search path based on cfg.Root
+	var searchPath string
 	if cfg.Root != "" {
-		searchPath = filepath.Join(wd, cfg.Root)
+		// cfg.Root can be an absolute path (git root) or relative path
+		if filepath.IsAbs(cfg.Root) {
+			searchPath = cfg.Root
+		} else {
+			wd, err := os.Getwd()
+			if err != nil {
+				return "", fmt.Errorf("failed to get working directory: %w", err)
+			}
+			searchPath = filepath.Join(wd, cfg.Root)
+		}
+	} else {
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get working directory: %w", err)
+		}
+		searchPath = wd
 	}
 	searchPath = filepath.Join(searchPath, moduleType)
 

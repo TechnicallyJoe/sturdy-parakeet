@@ -1,0 +1,482 @@
+package e2e
+
+import (
+	"bytes"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// skipIfNoTerraform skips the test if terraform is not installed
+func skipIfNoTerraform(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("terraform"); err != nil {
+		t.Skip("terraform not found in PATH, skipping e2e test")
+	}
+}
+
+// skipIfNoTofu skips the test if tofu is not installed
+func skipIfNoTofu(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("tofu"); err != nil {
+		t.Skip("tofu not found in PATH, skipping e2e test")
+	}
+}
+
+// getProjectRoot returns the root directory of the project
+func getProjectRoot(t *testing.T) string {
+	t.Helper()
+
+	// Get the current working directory (should be e2e/)
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+
+	// Go up to the project root
+	return filepath.Dir(wd)
+}
+
+// getDemoPath returns the path to the demo directory
+func getDemoPath(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(getProjectRoot(t), "demo")
+}
+
+// buildTfpl builds the tfpl binary and returns its path
+func buildTfpl(t *testing.T) string {
+	t.Helper()
+
+	// Build to a temp directory
+	tmpDir := t.TempDir()
+	binaryPath := filepath.Join(tmpDir, "tfpl")
+
+	projectRoot := getProjectRoot(t)
+
+	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
+	cmd.Dir = projectRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to build tfpl: %v\nOutput: %s", err, output)
+	}
+
+	return binaryPath
+}
+
+// cleanupTerraformFiles removes .terraform directories and lock files from demo
+func cleanupTerraformFiles(t *testing.T) {
+	t.Helper()
+	demoPath := getDemoPath(t)
+
+	// Walk through demo and remove .terraform directories and lock files
+	filepath.Walk(demoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() && info.Name() == ".terraform" {
+			os.RemoveAll(path)
+			return filepath.SkipDir
+		}
+		if info.Name() == ".terraform.lock.hcl" {
+			os.Remove(path)
+		}
+		return nil
+	})
+}
+
+func TestE2E_FmtComponent(t *testing.T) {
+	skipIfNoTerraform(t)
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run fmt on storage-account component
+	cmd := exec.Command(tfplBinary, "fmt", "-c", "storage-account")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl fmt failed: %v\nOutput: %s", err, output)
+	}
+
+	// Verify the command ran successfully (mentions the component path)
+	if !strings.Contains(string(output), "storage-account") {
+		t.Errorf("expected output to mention storage-account, got: %s", output)
+	}
+}
+
+func TestE2E_FmtNestedComponent(t *testing.T) {
+	skipIfNoTerraform(t)
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run fmt on key-vault component (nested under azurerm)
+	cmd := exec.Command(tfplBinary, "fmt", "-c", "key-vault")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl fmt failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "key-vault") {
+		t.Errorf("expected output to mention key-vault, got: %s", output)
+	}
+}
+
+func TestE2E_InitComponent(t *testing.T) {
+	skipIfNoTerraform(t)
+	t.Cleanup(func() { cleanupTerraformFiles(t) })
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run init on storage-account
+	cmd := exec.Command(tfplBinary, "init", "-c", "storage-account")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl init failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Initializing") {
+		t.Errorf("expected 'Initializing' in output, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "initialized") {
+		t.Errorf("expected 'initialized' in output, got: %s", outputStr)
+	}
+}
+
+func TestE2E_InitBase(t *testing.T) {
+	skipIfNoTerraform(t)
+	t.Cleanup(func() { cleanupTerraformFiles(t) })
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run init on k8s-argocd base
+	cmd := exec.Command(tfplBinary, "init", "-b", "k8s-argocd")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl init -b failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "k8s-argocd") {
+		t.Errorf("expected output to mention k8s-argocd, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "initialized") {
+		t.Errorf("expected 'initialized' in output, got: %s", outputStr)
+	}
+}
+
+func TestE2E_InitProject(t *testing.T) {
+	skipIfNoTerraform(t)
+	t.Cleanup(func() { cleanupTerraformFiles(t) })
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run init on prod-infra project
+	cmd := exec.Command(tfplBinary, "init", "-p", "prod-infra")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl init -p failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "prod-infra") {
+		t.Errorf("expected output to mention prod-infra, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "initialized") {
+		t.Errorf("expected 'initialized' in output, got: %s", outputStr)
+	}
+}
+
+func TestE2E_ValidateComponent(t *testing.T) {
+	skipIfNoTerraform(t)
+	t.Cleanup(func() { cleanupTerraformFiles(t) })
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run validate with init flag
+	cmd := exec.Command(tfplBinary, "val", "-i", "-c", "storage-account")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl val -i failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	// Should contain both init and validate output
+	if !strings.Contains(outputStr, "init") {
+		t.Errorf("expected 'init' in output, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "valid") || !strings.Contains(outputStr, "Success") {
+		// Terraform outputs "Success! The configuration is valid."
+		t.Logf("validate output: %s", outputStr)
+	}
+}
+
+func TestE2E_ValidateBase(t *testing.T) {
+	skipIfNoTerraform(t)
+	t.Cleanup(func() { cleanupTerraformFiles(t) })
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run validate with init flag on base
+	cmd := exec.Command(tfplBinary, "val", "-i", "-b", "k8s-argocd")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl val -i -b failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "k8s-argocd") {
+		t.Errorf("expected output to mention k8s-argocd, got: %s", output)
+	}
+}
+
+func TestE2E_ExplicitPath(t *testing.T) {
+	skipIfNoTerraform(t)
+	t.Cleanup(func() { cleanupTerraformFiles(t) })
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run init with explicit path
+	cmd := exec.Command(tfplBinary, "init", "--path", "components/azurerm/key-vault")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl init --path failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "key-vault") {
+		t.Errorf("expected output to mention key-vault, got: %s", outputStr)
+	}
+}
+
+func TestE2E_ConfigCommand(t *testing.T) {
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run config command
+	cmd := exec.Command(tfplBinary, "config")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl config failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Binary:") {
+		t.Error("config output should contain 'Binary:'")
+	}
+	if !strings.Contains(outputStr, "terraform") {
+		t.Error("config output should contain 'terraform'")
+	}
+}
+
+func TestE2E_ArgsFlag(t *testing.T) {
+	skipIfNoTerraform(t)
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run fmt with extra args
+	cmd := exec.Command(tfplBinary, "fmt", "-c", "storage-account", "-a", "-check")
+	cmd.Dir = demoPath
+	output, _ := cmd.CombinedOutput()
+
+	// The output should show the -check arg was passed
+	if !strings.Contains(string(output), "-check") {
+		t.Errorf("expected '-check' in output, got: %s", output)
+	}
+}
+
+func TestE2E_MultipleArgsFlag(t *testing.T) {
+	skipIfNoTerraform(t)
+	t.Cleanup(func() { cleanupTerraformFiles(t) })
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run init with multiple args
+	cmd := exec.Command(tfplBinary, "init", "-c", "storage-account", "-a", "-upgrade", "-a", "-reconfigure")
+	cmd.Dir = demoPath
+	output, _ := cmd.CombinedOutput()
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "-upgrade") {
+		t.Errorf("expected '-upgrade' in output, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, "-reconfigure") {
+		t.Errorf("expected '-reconfigure' in output, got: %s", outputStr)
+	}
+}
+
+func TestE2E_ModuleNotFound(t *testing.T) {
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Try to run on a non-existent component
+	cmd := exec.Command(tfplBinary, "init", "-c", "nonexistent-component")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+
+	if err == nil {
+		t.Error("expected error for non-existent component")
+	}
+
+	if !strings.Contains(string(output), "not found") {
+		t.Errorf("expected 'not found' in error message, got: %s", output)
+	}
+}
+
+func TestE2E_NoFlagsError(t *testing.T) {
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Try to run without specifying target
+	cmd := exec.Command(tfplBinary, "init")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+
+	if err == nil {
+		t.Error("expected error when no target flags specified")
+	}
+
+	if !strings.Contains(string(output), "must specify") {
+		t.Errorf("expected 'must specify' in error message, got: %s", output)
+	}
+}
+
+func TestE2E_MutuallyExclusiveFlags(t *testing.T) {
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Try to use both -c and -b
+	cmd := exec.Command(tfplBinary, "init", "-c", "storage-account", "-b", "k8s-argocd")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+
+	if err == nil {
+		t.Error("expected error when multiple target flags specified")
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "only one") && !strings.Contains(outputStr, "mutually exclusive") {
+		t.Errorf("expected mutual exclusivity error, got: %s", outputStr)
+	}
+}
+
+func TestE2E_VersionFlag(t *testing.T) {
+	tfplBinary := buildTfpl(t)
+
+	cmd := exec.Command(tfplBinary, "--version")
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("tfpl --version failed: %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "tfpl") {
+		t.Errorf("expected version output to contain 'tfpl', got: %s", stdout.String())
+	}
+}
+
+func TestE2E_HelpFlag(t *testing.T) {
+	tfplBinary := buildTfpl(t)
+
+	cmd := exec.Command(tfplBinary, "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl --help failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Terraform Polylith") {
+		t.Error("help output should contain 'Terraform Polylith'")
+	}
+	if !strings.Contains(outputStr, "--component") {
+		t.Error("help output should contain '--component'")
+	}
+	if !strings.Contains(outputStr, "--args") {
+		t.Error("help output should contain '--args'")
+	}
+	if !strings.Contains(outputStr, "--base") {
+		t.Error("help output should contain '--base'")
+	}
+	if !strings.Contains(outputStr, "--project") {
+		t.Error("help output should contain '--project'")
+	}
+}
+
+func TestE2E_SubcommandHelp(t *testing.T) {
+	tfplBinary := buildTfpl(t)
+
+	subcommands := []string{"init", "fmt", "val", "config"}
+
+	for _, subcmd := range subcommands {
+		t.Run(subcmd, func(t *testing.T) {
+			cmd := exec.Command(tfplBinary, subcmd, "--help")
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("tfpl %s --help failed: %v\nOutput: %s", subcmd, err, output)
+			}
+
+			if !strings.Contains(string(output), subcmd) {
+				t.Errorf("help output should mention %s", subcmd)
+			}
+		})
+	}
+}
+
+func TestE2E_ValidateAlias(t *testing.T) {
+	skipIfNoTerraform(t)
+	t.Cleanup(func() { cleanupTerraformFiles(t) })
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Use 'validate' alias instead of 'val'
+	cmd := exec.Command(tfplBinary, "validate", "-i", "-c", "storage-account")
+	cmd.Dir = demoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl validate failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "storage-account") {
+		t.Errorf("expected output to mention storage-account, got: %s", output)
+	}
+}
+
+func TestE2E_WorksFromSubdirectory(t *testing.T) {
+	skipIfNoTerraform(t)
+
+	tfplBinary := buildTfpl(t)
+	demoPath := getDemoPath(t)
+
+	// Run from a subdirectory within demo
+	subDir := filepath.Join(demoPath, "components", "azurerm")
+
+	cmd := exec.Command(tfplBinary, "fmt", "-c", "key-vault")
+	cmd.Dir = subDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tfpl from subdirectory failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "key-vault") {
+		t.Errorf("expected output to mention key-vault, got: %s", output)
+	}
+}

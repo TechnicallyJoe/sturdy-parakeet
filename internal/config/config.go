@@ -78,8 +78,11 @@ func Load(startDir string) (*Config, error) {
 			}
 
 			// If Root is not set in config, default to git root
+			// If Root is set and is relative, resolve it relative to the config file directory
 			if cfg.Root == "" {
 				cfg.Root = gitRoot
+			} else if !filepath.IsAbs(cfg.Root) {
+				cfg.Root = filepath.Join(dir, cfg.Root)
 			}
 
 			return cfg, nil

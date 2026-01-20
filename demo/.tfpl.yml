@@ -1,0 +1,4 @@
+# tfpl Demo Configuration
+# Root is set to current directory (where .tfpl.yml is found)
+root: .
+binary: terraform
