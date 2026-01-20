@@ -4,48 +4,57 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/TechnicallyJoe/sturdy-parakeet/internal/config"
 )
 
-// Binary holds the terraform/tofu binary name
-var Binary = "terraform"
+// Runner executes terraform/tofu commands using configuration
+type Runner struct {
+	config *config.Config
+}
 
-// SetBinary sets the binary to use for terraform commands
-func SetBinary(binary string) {
-	Binary = binary
+// NewRunner creates a new Runner with the given configuration
+func NewRunner(cfg *config.Config) *Runner {
+	return &Runner{config: cfg}
+}
+
+// Binary returns the configured binary name
+func (r *Runner) Binary() string {
+	return r.config.Binary
 }
 
 // RunInit executes terraform/tofu init in the specified directory
-func RunInit(dir string) error {
-	cmd := exec.Command(Binary, "init")
+func (r *Runner) RunInit(dir string) error {
+	cmd := exec.Command(r.config.Binary, "init")
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	fmt.Printf("Running %s init in %s\n", Binary, dir)
+	fmt.Printf("Running %s init in %s\n", r.config.Binary, dir)
 	return cmd.Run()
 }
 
 // RunFmt executes terraform/tofu fmt in the specified directory
-func RunFmt(dir string) error {
-	cmd := exec.Command(Binary, "fmt")
+func (r *Runner) RunFmt(dir string) error {
+	cmd := exec.Command(r.config.Binary, "fmt")
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	fmt.Printf("Running %s fmt in %s\n", Binary, dir)
+	fmt.Printf("Running %s fmt in %s\n", r.config.Binary, dir)
 	return cmd.Run()
 }
 
 // RunValidate executes terraform/tofu validate in the specified directory
-func RunValidate(dir string) error {
-	cmd := exec.Command(Binary, "validate")
+func (r *Runner) RunValidate(dir string) error {
+	cmd := exec.Command(r.config.Binary, "validate")
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	fmt.Printf("Running %s validate in %s\n", Binary, dir)
+	fmt.Printf("Running %s validate in %s\n", r.config.Binary, dir)
 	return cmd.Run()
 }

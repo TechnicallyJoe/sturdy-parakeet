@@ -14,7 +14,8 @@ import (
 const version = "1.0.0"
 
 var (
-	cfg *config.Config
+	cfg    *config.Config
+	runner *terraform.Runner
 
 	// Flags
 	componentFlag string
@@ -31,7 +32,7 @@ var rootCmd = &cobra.Command{
 	Version: version,
 	Long: `tfpl (Terraform Polylith) is a CLI tool for working with polylith-style Terraform repositories.
 
-It supports running terraform/tofu commands on components, bases, and projects organized 
+It supports running terraform/tofu commands on components, bases, and projects organized
 in a polylith structure.`,
 	Example: `  tfpl fmt -c storage-account      # Run fmt on component storage-account
   tfpl val -b k8s-argocd           # Run validate on base k8s-argocd
@@ -50,8 +51,8 @@ in a polylith structure.`,
 			return err
 		}
 
-		// Set the terraform binary
-		terraform.SetBinary(cfg.Binary)
+		// Create terraform runner with config
+		runner = terraform.NewRunner(cfg)
 
 		return nil
 	},
@@ -67,7 +68,7 @@ var initCmd = &cobra.Command{
 			return err
 		}
 
-		return terraform.RunInit(targetPath)
+		return runner.RunInit(targetPath)
 	},
 }
 
@@ -83,12 +84,12 @@ var fmtCmd = &cobra.Command{
 
 		// Run init first if flag is set
 		if initFlag {
-			if err := terraform.RunInit(targetPath); err != nil {
+			if err := runner.RunInit(targetPath); err != nil {
 				return err
 			}
 		}
 
-		return terraform.RunFmt(targetPath)
+		return runner.RunFmt(targetPath)
 	},
 }
 
@@ -105,12 +106,12 @@ var valCmd = &cobra.Command{
 
 		// Run init first if flag is set
 		if initFlag {
-			if err := terraform.RunInit(targetPath); err != nil {
+			if err := runner.RunInit(targetPath); err != nil {
 				return err
 			}
 		}
 
-		return terraform.RunValidate(targetPath)
+		return runner.RunValidate(targetPath)
 	},
 }
 
