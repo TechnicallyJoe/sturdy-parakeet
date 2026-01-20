@@ -7,34 +7,30 @@ provider "azurerm" {
   features {}
 }
 
-variable "name" {
-  type        = string
-  description = "The name of the storage account"
-  default     = "demostorageaccount"
-}
-
 variable "resource_group_name" {
   type        = string
   description = "The name of the resource group"
-  default     = "demo-rg"
+}
+
+variable "name" {
+  type        = string
+  description = "The name of the storage account"
 }
 
 variable "location" {
   type        = string
   description = "The Azure region"
-  default     = "eastus"
+  default     = "westeurope"
 }
 
-variable "account_tier" {
-  type        = string
-  description = "The storage account tier"
-  default     = "Standard"
-}
 
-variable "account_replication_type" {
-  type        = string
-  description = "The replication type"
-  default     = "LRS"
+
+resource "azurerm_storage_account" "main" {
+  name                     = var.name
+  resource_group_name      = var.resource_group_name
+  location                 = var.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
 }
 
 output "name" {
@@ -42,7 +38,7 @@ output "name" {
   description = "The storage account name"
 }
 
-output "resource_group_name" {
-  value       = var.resource_group_name
-  description = "The resource group name"
+output "id" {
+  value       = azurerm_storage_account.main.id
+  description = "The storage account ID"
 }
