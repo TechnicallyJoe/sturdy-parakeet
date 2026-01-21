@@ -290,27 +290,27 @@ func TestMatchesWildcard(t *testing.T) {
 		// Exact matches
 		{"storage-account", "storage-account", true},
 		{"storage-account", "storage", false},
-		
+
 		// Wildcards at the end
 		{"storage-account", "storage-*", true},
 		{"storage-account", "key-*", false},
-		
+
 		// Wildcards at the start
 		{"storage-account", "*account", true},
 		{"storage-account", "*vault", false},
-		
+
 		// Wildcards in the middle
 		{"storage-account", "storage*account", true},
 		{"storage-account", "key*account", false},
-		
+
 		// Multiple wildcards
 		{"my-storage-account", "*storage*", true},
 		{"my-storage-account", "*key*", false},
-		
+
 		// Only wildcard
 		{"storage-account", "*", true},
 		{"anything", "*", true},
-		
+
 		// Multiple wildcards at various positions
 		{"prod-storage-account-east", "prod*storage*east", true},
 		{"prod-storage-account-west", "prod*storage*east", false},
@@ -320,9 +320,123 @@ func TestMatchesWildcard(t *testing.T) {
 		t.Run(tt.name+"_with_"+tt.pattern, func(t *testing.T) {
 			result := MatchesWildcard(tt.name, tt.pattern)
 			if result != tt.expected {
-				t.Errorf("MatchesWildcard(%q, %q) = %v, expected %v", 
+				t.Errorf("MatchesWildcard(%q, %q) = %v, expected %v",
 					tt.name, tt.pattern, result, tt.expected)
 			}
 		})
+	}
+}
+
+// Tests for skipping .terraform and other excluded directories
+
+func TestFindModule_SkipsTerraformDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a valid module
+	validModule := filepath.Join(tmpDir, "storage-account")
+	if err := os.MkdirAll(validModule, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(validModule, "main.tf"), []byte("# valid module"), 0644); err != nil {
+		t.Fatalf("failed to create main.tf: %v", err)
+	}
+
+	// Create a .terraform directory with a cached module that has the same name
+	cachedModule := filepath.Join(validModule, ".terraform", "modules", "storage-account")
+	if err := os.MkdirAll(cachedModule, 0755); err != nil {
+		t.Fatalf("failed to create cached module directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cachedModule, "main.tf"), []byte("# cached module"), 0644); err != nil {
+		t.Fatalf("failed to create cached main.tf: %v", err)
+	}
+
+	matches, err := FindModule(tmpDir, "storage-account")
+	if err != nil {
+		t.Fatalf("FindModule returned error: %v", err)
+	}
+
+	// Should only find the valid module, not the cached one
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d: %v", len(matches), matches)
+	}
+
+	if matches[0] != validModule {
+		t.Errorf("expected match to be '%s', got '%s'", validModule, matches[0])
+	}
+}
+
+func TestListAllModules_SkipsTerraformDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a valid module
+	validModule := filepath.Join(tmpDir, "my-module")
+	if err := os.MkdirAll(validModule, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(validModule, "main.tf"), []byte("# valid module"), 0644); err != nil {
+		t.Fatalf("failed to create main.tf: %v", err)
+	}
+
+	// Create a .terraform directory with cached modules
+	cachedModule := filepath.Join(validModule, ".terraform", "modules", "registry-module")
+	if err := os.MkdirAll(cachedModule, 0755); err != nil {
+		t.Fatalf("failed to create cached module directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cachedModule, "main.tf"), []byte("# cached module"), 0644); err != nil {
+		t.Fatalf("failed to create cached main.tf: %v", err)
+	}
+
+	modules, err := ListAllModules(tmpDir)
+	if err != nil {
+		t.Fatalf("ListAllModules returned error: %v", err)
+	}
+
+	// Should only find my-module, not registry-module
+	if len(modules) != 1 {
+		t.Fatalf("expected 1 module, got %d: %v", len(modules), modules)
+	}
+
+	if _, exists := modules["my-module"]; !exists {
+		t.Error("expected to find 'my-module'")
+	}
+
+	if _, exists := modules["registry-module"]; exists {
+		t.Error("should not find 'registry-module' from .terraform directory")
+	}
+}
+
+func TestFindModule_SkipsGitDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a valid module
+	validModule := filepath.Join(tmpDir, "my-module")
+	if err := os.MkdirAll(validModule, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(validModule, "main.tf"), []byte("# valid module"), 0644); err != nil {
+		t.Fatalf("failed to create main.tf: %v", err)
+	}
+
+	// Create a .git directory (should be skipped)
+	gitDir := filepath.Join(tmpDir, ".git", "my-module")
+	if err := os.MkdirAll(gitDir, 0755); err != nil {
+		t.Fatalf("failed to create .git directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(gitDir, "main.tf"), []byte("# git content"), 0644); err != nil {
+		t.Fatalf("failed to create git main.tf: %v", err)
+	}
+
+	matches, err := FindModule(tmpDir, "my-module")
+	if err != nil {
+		t.Fatalf("FindModule returned error: %v", err)
+	}
+
+	// Should only find the valid module
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d: %v", len(matches), matches)
+	}
+
+	if matches[0] != validModule {
+		t.Errorf("expected match to be '%s', got '%s'", validModule, matches[0])
 	}
 }
