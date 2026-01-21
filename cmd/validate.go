@@ -9,9 +9,17 @@ var valCmd = &cobra.Command{
 	Use:     "val [module-name]",
 	Aliases: []string{"validate"},
 	Short:   "Run terraform/tofu validate on a component, base, or project",
-	Args:    cobra.MaximumNArgs(1),
+	Long: `Run terraform/tofu validate on a component, base, or project.
+
+Use the --example/-e flag to run validate on a specific example instead of the module itself.
+
+Examples:
+  tfpl val storage-account              # Run validate on storage-account module
+  tfpl val storage-account -e basic     # Run validate on the 'basic' example
+  tfpl val -i storage-account -e basic  # Run init then validate on the 'basic' example`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		targetPath, err := resolveTargetPath(args)
+		targetPath, err := resolveTargetWithExample(args, exampleFlag)
 		if err != nil {
 			return err
 		}
@@ -29,5 +37,6 @@ var valCmd = &cobra.Command{
 
 func init() {
 	valCmd.Flags().BoolVarP(&initFlag, "init", "i", false, "Run init before the command")
+	valCmd.Flags().StringVarP(&exampleFlag, "example", "e", "", "Run on a specific example instead of the module")
 	rootCmd.AddCommand(valCmd)
 }

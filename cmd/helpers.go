@@ -125,6 +125,35 @@ func findModuleInAllDirs(moduleName string) (string, error) {
 	return allMatches[0], nil
 }
 
+// resolveTargetWithExample resolves the target path, optionally switching to an example directory
+func resolveTargetWithExample(args []string, exampleName string) (string, error) {
+	modulePath, err := resolveTargetPath(args)
+	if err != nil {
+		return "", err
+	}
+
+	// If no example specified, return the module path
+	if exampleName == "" {
+		return modulePath, nil
+	}
+
+	// Resolve the example path
+	examplePath := filepath.Join(modulePath, "examples", exampleName)
+
+	// Check if the example directory exists
+	if _, err := os.Stat(examplePath); os.IsNotExist(err) {
+		return "", fmt.Errorf("example '%s' not found in %s/examples", exampleName, modulePath)
+	}
+
+	// Check if it contains main.tf (valid terraform module)
+	mainTfPath := filepath.Join(examplePath, "main.tf")
+	if _, err := os.Stat(mainTfPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("example '%s' is not a valid terraform module (missing main.tf)", exampleName)
+	}
+
+	return examplePath, nil
+}
+
 // readModuleVersion reads the module_version from .spacelift/config.yml
 func readModuleVersion(modulePath string) string {
 	spaceliftConfig := filepath.Join(modulePath, ".spacelift", "config.yml")

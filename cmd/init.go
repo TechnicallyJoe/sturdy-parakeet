@@ -8,9 +8,16 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init [module-name]",
 	Short: "Run terraform/tofu init on a component, base, or project",
-	Args:  cobra.MaximumNArgs(1),
+	Long: `Run terraform/tofu init on a component, base, or project.
+
+Use the --example/-e flag to run init on a specific example instead of the module itself.
+
+Examples:
+  tfpl init storage-account              # Run init on storage-account module
+  tfpl init storage-account -e basic     # Run init on the 'basic' example`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		targetPath, err := resolveTargetPath(args)
+		targetPath, err := resolveTargetWithExample(args, exampleFlag)
 		if err != nil {
 			return err
 		}
@@ -20,5 +27,6 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
+	initCmd.Flags().StringVarP(&exampleFlag, "example", "e", "", "Run on a specific example instead of the module")
 	rootCmd.AddCommand(initCmd)
 }

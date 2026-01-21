@@ -406,3 +406,141 @@ another_key: 123`
 		t.Errorf("expected empty string, got '%s'", result)
 	}
 }
+
+// Tests for resolveTargetWithExample
+
+func TestResolveTargetWithExample_NoExample(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg = &config.Config{Root: "", Binary: "terraform"}
+
+	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
+	if err := os.MkdirAll(modulePath, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+
+	tfFile := filepath.Join(modulePath, "main.tf")
+	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
+		t.Fatalf("failed to create .tf file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	pathFlag = ""
+
+	result, err := resolveTargetWithExample([]string{"storage-account"}, "")
+	if err != nil {
+		t.Fatalf("resolveTargetWithExample returned error: %v", err)
+	}
+
+	if result != modulePath {
+		t.Errorf("expected '%s', got '%s'", modulePath, result)
+	}
+}
+
+func TestResolveTargetWithExample_WithExample(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg = &config.Config{Root: "", Binary: "terraform"}
+
+	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
+	examplePath := filepath.Join(modulePath, "examples", "basic")
+	if err := os.MkdirAll(examplePath, 0755); err != nil {
+		t.Fatalf("failed to create example directory: %v", err)
+	}
+
+	// Create main.tf in the module
+	moduleTfFile := filepath.Join(modulePath, "main.tf")
+	if err := os.WriteFile(moduleTfFile, []byte("# module terraform"), 0644); err != nil {
+		t.Fatalf("failed to create module main.tf: %v", err)
+	}
+
+	// Create main.tf in the example
+	exampleTfFile := filepath.Join(examplePath, "main.tf")
+	if err := os.WriteFile(exampleTfFile, []byte("# example terraform"), 0644); err != nil {
+		t.Fatalf("failed to create example main.tf: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	pathFlag = ""
+
+	result, err := resolveTargetWithExample([]string{"storage-account"}, "basic")
+	if err != nil {
+		t.Fatalf("resolveTargetWithExample returned error: %v", err)
+	}
+
+	if result != examplePath {
+		t.Errorf("expected '%s', got '%s'", examplePath, result)
+	}
+}
+
+func TestResolveTargetWithExample_ExampleNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg = &config.Config{Root: "", Binary: "terraform"}
+
+	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
+	if err := os.MkdirAll(modulePath, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+
+	tfFile := filepath.Join(modulePath, "main.tf")
+	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
+		t.Fatalf("failed to create .tf file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	pathFlag = ""
+
+	_, err := resolveTargetWithExample([]string{"storage-account"}, "nonexistent")
+	if err == nil {
+		t.Error("expected error for non-existent example, got nil")
+	}
+}
+
+func TestResolveTargetWithExample_ExampleMissingMainTf(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg = &config.Config{Root: "", Binary: "terraform"}
+
+	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
+	examplePath := filepath.Join(modulePath, "examples", "basic")
+	if err := os.MkdirAll(examplePath, 0755); err != nil {
+		t.Fatalf("failed to create example directory: %v", err)
+	}
+
+	// Create main.tf in the module only
+	moduleTfFile := filepath.Join(modulePath, "main.tf")
+	if err := os.WriteFile(moduleTfFile, []byte("# module terraform"), 0644); err != nil {
+		t.Fatalf("failed to create module main.tf: %v", err)
+	}
+
+	// No main.tf in example directory
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	pathFlag = ""
+
+	_, err := resolveTargetWithExample([]string{"storage-account"}, "basic")
+	if err == nil {
+		t.Error("expected error for example without main.tf, got nil")
+	}
+}

@@ -16,10 +16,11 @@ var (
 	runner *terraform.Runner
 
 	// Flags
-	pathFlag   string
-	initFlag   bool
-	argsFlag   []string
-	searchFlag string
+	pathFlag    string
+	initFlag    bool
+	argsFlag    []string
+	searchFlag  string
+	exampleFlag string
 )
 
 // rootCmd represents the base command
