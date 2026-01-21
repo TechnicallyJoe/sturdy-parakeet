@@ -145,10 +145,10 @@ func resolveTargetWithExample(args []string, exampleName string) (string, error)
 		return "", fmt.Errorf("example '%s' not found in %s/examples", exampleName, modulePath)
 	}
 
-	// Check if it contains main.tf (valid terraform module)
-	mainTfPath := filepath.Join(examplePath, "main.tf")
-	if _, err := os.Stat(mainTfPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("example '%s' is not a valid terraform module (missing main.tf)", exampleName)
+	// Check if it contains any .tf file (valid terraform module)
+	tfFiles, err := filepath.Glob(filepath.Join(examplePath, "*.tf"))
+	if err != nil || len(tfFiles) == 0 {
+		return "", fmt.Errorf("example '%s' is not a valid terraform module (no .tf files found)", exampleName)
 	}
 
 	return examplePath, nil
