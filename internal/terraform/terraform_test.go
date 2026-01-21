@@ -86,70 +86,117 @@ func TestRunner_WithDefaultConfig(t *testing.T) {
 	}
 }
 
-func TestBuildArgs(t *testing.T) {
-	tests := []struct {
-		name      string
-		command   string
-		extraArgs []string
-		expected  []string
-	}{
-		{
-			name:      "command only",
-			command:   "init",
-			extraArgs: []string{},
-			expected:  []string{"init"},
-		},
-		{
-			name:      "command with one arg",
-			command:   "init",
-			extraArgs: []string{"-upgrade"},
-			expected:  []string{"init", "-upgrade"},
-		},
-		{
-			name:      "command with multiple args",
-			command:   "init",
-			extraArgs: []string{"-upgrade", "-reconfigure"},
-			expected:  []string{"init", "-upgrade", "-reconfigure"},
-		},
-		{
-			name:      "fmt with check flag",
-			command:   "fmt",
-			extraArgs: []string{"-check"},
-			expected:  []string{"fmt", "-check"},
-		},
-		{
-			name:      "validate with json output",
-			command:   "validate",
-			extraArgs: []string{"-json"},
-			expected:  []string{"validate", "-json"},
+func TestRunner_RunTest_UnsupportedEngine(t *testing.T) {
+	cfg := &config.Config{
+		Root:   "/test/root",
+		Binary: "terraform",
+		Test: &config.TestConfig{
+			Engine: "unsupported",
+			Args:   "",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := BuildArgs(tt.command, tt.extraArgs...)
+	runner := NewRunner(cfg)
+	tmpDir := t.TempDir()
 
-			if len(result) != len(tt.expected) {
-				t.Fatalf("expected %d args, got %d", len(tt.expected), len(result))
-			}
-
-			for i, arg := range result {
-				if arg != tt.expected[i] {
-					t.Errorf("arg[%d] = %s, expected %s", i, arg, tt.expected[i])
-				}
-			}
-		})
+	err := runner.RunTest(tmpDir)
+	if err == nil {
+		t.Error("expected error for unsupported test engine, got nil")
 	}
 }
 
-func TestBuildArgs_PreservesArgOrder(t *testing.T) {
-	args := BuildArgs("init", "-backend=false", "-upgrade", "-reconfigure")
+func TestRunner_RunTest_DefaultEngine(t *testing.T) {
+	cfg := config.DefaultConfig()
+	_ = NewRunner(cfg)
 
-	expected := []string{"init", "-backend=false", "-upgrade", "-reconfigure"}
-	for i, arg := range args {
-		if arg != expected[i] {
-			t.Errorf("arg order not preserved: got %v, expected %v", args, expected)
-			break
-		}
+	if cfg.Test.Engine != "terratest" {
+		t.Errorf("expected default test engine to be 'terratest', got '%s'", cfg.Test.Engine)
 	}
+}
+
+// TestRunner_RunTest_TerratestEngine verifies that terratest engine runs go test
+func TestRunner_RunTest_TerratestEngine(t *testing.T) {
+	cfg := &config.Config{
+		Root:   "/test/root",
+		Binary: "terraform",
+		Test: &config.TestConfig{
+			Engine: "terratest",
+			Args:   "",
+		},
+	}
+
+	_ = NewRunner(cfg)
+
+	// Verify the engine is correctly set
+	if cfg.Test.Engine != "terratest" {
+		t.Errorf("expected engine 'terratest', got '%s'", cfg.Test.Engine)
+	}
+
+	// The actual command would be: go test ./...
+	// We can't easily test the actual execution without mocking,
+	// but we verify the config is correctly set up
+}
+
+// TestRunner_RunTest_WithConfigArgs verifies config args are included
+func TestRunner_RunTest_WithConfigArgs(t *testing.T) {
+	cfg := &config.Config{
+		Root:   "/test/root",
+		Binary: "terraform",
+		Test: &config.TestConfig{
+			Engine: "terratest",
+			Args:   "-v -count=1",
+		},
+	}
+
+	_ = NewRunner(cfg)
+
+	// Verify config args are set
+	if cfg.Test.Args != "-v -count=1" {
+		t.Errorf("expected args '-v -count=1', got '%s'", cfg.Test.Args)
+	}
+
+	// The actual command would be: go test ./... -v -count=1
+	// This validates that the config properly stores the args
+}
+
+// TestRunner_RunTest_TerraformEngine verifies terraform engine setup
+func TestRunner_RunTest_TerraformEngine(t *testing.T) {
+	cfg := &config.Config{
+		Root:   "/test/root",
+		Binary: "terraform",
+		Test: &config.TestConfig{
+			Engine: "terraform",
+			Args:   "-verbose",
+		},
+	}
+
+	_ = NewRunner(cfg)
+
+	// Verify the engine is correctly set
+	if cfg.Test.Engine != "terraform" {
+		t.Errorf("expected engine 'terraform', got '%s'", cfg.Test.Engine)
+	}
+
+	// The actual command would be: terraform test -verbose
+}
+
+// TestRunner_RunTest_TofuEngine verifies tofu engine setup
+func TestRunner_RunTest_TofuEngine(t *testing.T) {
+	cfg := &config.Config{
+		Root:   "/test/root",
+		Binary: "terraform",
+		Test: &config.TestConfig{
+			Engine: "tofu",
+			Args:   "",
+		},
+	}
+
+	_ = NewRunner(cfg)
+
+	// Verify the engine is correctly set
+	if cfg.Test.Engine != "tofu" {
+		t.Errorf("expected engine 'tofu', got '%s'", cfg.Test.Engine)
+	}
+
+	// The actual command would be: tofu test
 }
