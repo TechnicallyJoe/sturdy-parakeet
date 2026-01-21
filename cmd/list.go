@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// listJsonFlag controls JSON output for list command
+var listJsonFlag bool
+
 // listCmd represents the list command
 var listCmd = &cobra.Command{
 	Use:   "list",
@@ -17,16 +21,19 @@ var listCmd = &cobra.Command{
 	Long: `List all modules found in components, bases, and projects directories.
 
 Use the --search/-s flag to filter modules using wildcards.
+Use the --json flag to output in JSON format for scripting.
+
 Examples:
   tfpl list                    # List all modules
   tfpl list -s storage         # List modules containing "storage"
   tfpl list -s *account*       # List modules with "account" anywhere in the name
-  tfpl list -s storage-*       # List modules starting with "storage-"`,
+  tfpl list --json             # Output as JSON`,
 	RunE: runList,
 }
 
 func init() {
 	listCmd.Flags().StringVarP(&searchFlag, "search", "s", "", "Filter modules using wildcards (e.g., *storage*)")
+	listCmd.Flags().BoolVar(&listJsonFlag, "json", false, "Output in JSON format")
 	rootCmd.AddCommand(listCmd)
 }
 
@@ -42,6 +49,10 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(modules) == 0 {
+		if listJsonFlag {
+			fmt.Println("[]")
+			return nil
+		}
 		if searchFlag != "" {
 			fmt.Printf("No modules found matching '%s'\n", searchFlag)
 		} else {
@@ -51,8 +62,12 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	sortModules(modules)
-	printModules(modules)
 
+	if listJsonFlag {
+		return printModulesJSON(modules)
+	}
+
+	printModules(modules)
 	return nil
 }
 
@@ -124,4 +139,14 @@ func printModules(modules []ModuleInfo) {
 		}
 		fmt.Printf("  %-20s [%-9s]  %s%s\n", mod.Name, mod.Type, mod.Path, versionStr)
 	}
+}
+
+// printModulesJSON outputs the list of modules in JSON format
+func printModulesJSON(modules []ModuleInfo) error {
+	output, err := json.MarshalIndent(modules, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	fmt.Println(string(output))
+	return nil
 }

@@ -7,6 +7,19 @@ const (
 	DirProjects   = "projects"
 )
 
+// Subdirectory constants
+const (
+	DirExamples  = "examples"
+	DirModules   = "modules"
+	DirTests     = "tests"
+	DirSpacelift = ".spacelift"
+)
+
+// File constants
+const (
+	FileSpaceliftConfig = "config.yml"
+)
+
 // Module type constants
 const (
 	TypeComponent = "component"
@@ -26,8 +39,8 @@ var ModuleTypeOrder = map[string]int{
 
 // ModuleInfo holds information about a discovered module
 type ModuleInfo struct {
-	Name    string
-	Type    string
-	Path    string
-	Version string
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	Path    string `json:"path"`
+	Version string `json:"version,omitempty"`
 }

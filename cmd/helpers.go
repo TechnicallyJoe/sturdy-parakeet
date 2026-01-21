@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/TechnicallyJoe/sturdy-parakeet/internal/finder"
+	"gopkg.in/yaml.v3"
 )
 
 // getBasePath returns the base path for module discovery based on cfg.Root
@@ -113,13 +114,11 @@ func findModuleInAllDirs(moduleName string) (string, error) {
 
 	if len(allMatches) > 1 {
 		// Name clash detected across multiple directories
-		fmt.Fprintf(os.Stderr, "Error: multiple modules named '%s' found - name clash detected:\n", moduleName)
+		var paths string
 		for i, match := range allMatches {
-			fmt.Fprintf(os.Stderr, "  %d. %s\n", i+1, match)
+			paths += fmt.Sprintf("\n  %d. %s", i+1, match)
 		}
-		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "Please use --path to specify the exact path")
-		return "", fmt.Errorf("name clash detected")
+		return "", fmt.Errorf("multiple modules named '%s' found - name clash detected:%s\n\nPlease use --path to specify the exact path", moduleName, paths)
 	}
 
 	return allMatches[0], nil
@@ -138,11 +137,11 @@ func resolveTargetWithExample(args []string, exampleName string) (string, error)
 	}
 
 	// Resolve the example path
-	examplePath := filepath.Join(modulePath, "examples", exampleName)
+	examplePath := filepath.Join(modulePath, DirExamples, exampleName)
 
 	// Check if the example directory exists
 	if _, err := os.Stat(examplePath); os.IsNotExist(err) {
-		return "", fmt.Errorf("example '%s' not found in %s/examples", exampleName, modulePath)
+		return "", fmt.Errorf("example '%s' not found in %s/%s", exampleName, modulePath, DirExamples)
 	}
 
 	// Check if it contains any .tf file (valid terraform module)
@@ -154,23 +153,23 @@ func resolveTargetWithExample(args []string, exampleName string) (string, error)
 	return examplePath, nil
 }
 
+// spaceliftConfig represents the structure of .spacelift/config.yml
+type spaceliftConfig struct {
+	ModuleVersion string `yaml:"module_version"`
+}
+
 // readModuleVersion reads the module_version from .spacelift/config.yml
 func readModuleVersion(modulePath string) string {
-	spaceliftConfig := filepath.Join(modulePath, ".spacelift", "config.yml")
-	data, err := os.ReadFile(spaceliftConfig)
+	configPath := filepath.Join(modulePath, DirSpacelift, FileSpaceliftConfig)
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return ""
 	}
 
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "module_version:") {
-			parts := strings.SplitN(line, ":", 2)
-			if len(parts) == 2 {
-				return strings.TrimSpace(parts[1])
-			}
-		}
+	var cfg spaceliftConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return ""
 	}
-	return ""
+
+	return cfg.ModuleVersion
 }

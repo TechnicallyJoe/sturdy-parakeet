@@ -587,3 +587,150 @@ func TestShowCommand_Integration(t *testing.T) {
 		t.Errorf("expected example name 'basic', got '%s'", details.Examples[0].Name)
 	}
 }
+
+// Edge case tests for show command
+
+func TestGetModuleDetails_NoSubdirectories(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg = &config.Config{Root: "", Binary: "terraform"}
+
+	// Create a minimal module with just main.tf
+	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "simple-module")
+	if err := os.MkdirAll(modulePath, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "main.tf"), []byte("# terraform"), 0644); err != nil {
+		t.Fatalf("failed to create main.tf: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	details, err := getModuleDetails(modulePath)
+	if err != nil {
+		t.Fatalf("getModuleDetails returned error: %v", err)
+	}
+
+	if details.HasSubmodules {
+		t.Error("expected HasSubmodules to be false")
+	}
+	if details.HasTests {
+		t.Error("expected HasTests to be false")
+	}
+	if details.HasExamples {
+		t.Error("expected HasExamples to be false")
+	}
+	if len(details.Submodules) != 0 {
+		t.Errorf("expected 0 submodules, got %d", len(details.Submodules))
+	}
+	if len(details.Tests) != 0 {
+		t.Errorf("expected 0 tests, got %d", len(details.Tests))
+	}
+	if len(details.Examples) != 0 {
+		t.Errorf("expected 0 examples, got %d", len(details.Examples))
+	}
+}
+
+func TestGetModuleDetails_EmptySubdirectories(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg = &config.Config{Root: "", Binary: "terraform"}
+
+	// Create module with empty subdirectories (they exist but have no content)
+	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "with-empty-dirs")
+	if err := os.MkdirAll(modulePath, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "main.tf"), []byte("# terraform"), 0644); err != nil {
+		t.Fatalf("failed to create main.tf: %v", err)
+	}
+
+	// Create empty subdirectories
+	for _, dir := range []string{DirExamples, DirModules, DirTests} {
+		if err := os.MkdirAll(filepath.Join(modulePath, dir), 0755); err != nil {
+			t.Fatalf("failed to create %s directory: %v", dir, err)
+		}
+	}
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	details, err := getModuleDetails(modulePath)
+	if err != nil {
+		t.Fatalf("getModuleDetails returned error: %v", err)
+	}
+
+	// Directories exist but are empty, so HasX should be false
+	if details.HasSubmodules {
+		t.Error("expected HasSubmodules to be false for empty directory")
+	}
+	if details.HasTests {
+		t.Error("expected HasTests to be false for empty directory")
+	}
+	if details.HasExamples {
+		t.Error("expected HasExamples to be false for empty directory")
+	}
+}
+
+func TestListItems_WithVariablesTfOnly(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	examplesDir := filepath.Join(tmpDir, DirExamples)
+
+	// Create example with only variables.tf (no main.tf) - should still be included
+	basicDir := filepath.Join(examplesDir, "basic")
+	if err := os.MkdirAll(basicDir, 0755); err != nil {
+		t.Fatalf("failed to create basic example: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(basicDir, "variables.tf"), []byte("# variables"), 0644); err != nil {
+		t.Fatalf("failed to create variables.tf: %v", err)
+	}
+
+	items := listItems(examplesDir, tmpDir)
+
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item (dir with .tf file), got %d", len(items))
+	}
+
+	if items[0].Name != "basic" {
+		t.Errorf("expected item name 'basic', got '%s'", items[0].Name)
+	}
+}
+
+func TestGetModuleDetails_UnknownModuleType(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg = &config.Config{Root: "", Binary: "terraform"}
+
+	// Create a module outside the standard directories
+	modulePath := filepath.Join(tmpDir, "custom", "my-module")
+	if err := os.MkdirAll(modulePath, 0755); err != nil {
+		t.Fatalf("failed to create module directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "main.tf"), []byte("# terraform"), 0644); err != nil {
+		t.Fatalf("failed to create main.tf: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	details, err := getModuleDetails(modulePath)
+	if err != nil {
+		t.Fatalf("getModuleDetails returned error: %v", err)
+	}
+
+	// Type should be empty for modules not in standard directories
+	if details.Type != "" {
+		t.Errorf("expected empty type for non-standard module, got '%s'", details.Type)
+	}
+}

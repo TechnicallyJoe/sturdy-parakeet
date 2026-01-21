@@ -15,12 +15,16 @@ var (
 	cfg    *config.Config
 	runner *terraform.Runner
 
-	// Flags
-	pathFlag    string
-	initFlag    bool
-	argsFlag    []string
-	searchFlag  string
-	exampleFlag string
+	// Global flags (persistent across all commands)
+	pathFlag string   // Explicit path to module
+	argsFlag []string // Extra arguments passed to terraform/tofu
+
+	// Command-specific flags
+	// Note: These are registered per-command but share state here for simplicity.
+	// Each command that uses these flags registers them in its own init().
+	initFlag    bool   // Run init before the command (fmt, validate)
+	searchFlag  string // Filter pattern for list command
+	exampleFlag string // Target a specific example instead of the module (init, fmt, validate)
 )
 
 // rootCmd represents the base command

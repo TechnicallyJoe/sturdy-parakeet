@@ -5,10 +5,13 @@ A command-line tool for working with polylith-style Terraform repositories. `tfp
 ## Features
 
 - **Simple commands**: Run `init`, `fmt`, `validate`, and `test` on components, bases, or projects
+- **Module inspection**: Use `show` to view detailed module information including submodules, tests, and examples
+- **Example targeting**: Run commands on specific examples within modules using the `-e` flag
 - **Configurable**: Support for both `terraform` and `tofu` via `.tfpl.yml`
 - **Test support**: Run terratests or native terraform/tofu tests on modules
 - **Smart discovery**: Recursively finds modules in nested subdirectories
 - **Clash detection**: Warns when multiple modules share the same name
+- **JSON output**: Use `--json` flag with `list` and `show` for scripting
 
 ## Installation
 
@@ -47,7 +50,7 @@ Run `terraform init` or `tofu init` on a module:
 ```bash
 tfpl init storage-account       # Init storage-account (searches components, bases, and projects)
 tfpl init k8s-argocd           # Init k8s-argocd
-tfpl init spacelift-modules    # Init spacelift-modules
+tfpl init storage-account -e basic  # Init the 'basic' example of storage-account
 ```
 
 #### `tfpl fmt`
@@ -57,6 +60,7 @@ Run `terraform fmt` or `tofu fmt` on a module:
 tfpl fmt storage-account       # Format storage-account
 tfpl fmt k8s-argocd           # Format k8s-argocd
 tfpl fmt -i storage-account   # Init then format storage-account
+tfpl fmt storage-account -e basic  # Format the 'basic' example
 ```
 
 #### `tfpl val` (or `validate`)
@@ -66,6 +70,7 @@ Run `terraform validate` or `tofu validate` on a module:
 tfpl val storage-account       # Validate storage-account
 tfpl validate k8s-argocd      # Validate k8s-argocd
 tfpl val -i spacelift-modules # Init then validate spacelift-modules
+tfpl val storage-account -e basic  # Validate the 'basic' example
 ```
 
 #### `tfpl test`
@@ -97,13 +102,52 @@ Test configuration:
   Args:   (none)
 ```
 
+#### `tfpl show`
+Show detailed information about a module:
+
+```bash
+tfpl show storage-account      # Show details for storage-account
+tfpl show --path ./my-module   # Show details for module at explicit path
+tfpl show storage-account --json  # Output as JSON for scripting
+```
+
+Output:
+```
+Name:                  storage-account
+Type:                  component
+Path:                  components/azurerm/storage-account
+Spacelift Version:     1.2.3
+Has Submodules:        No
+Has Tests:             Yes
+Has Examples:          Yes
+
+Examples:
+  - basic (components/azurerm/storage-account/examples/basic)
+
+Tests:
+  - basic_test.go (components/azurerm/storage-account/tests/basic_test.go)
+```
+
+#### `tfpl list`
+List all modules in the repository:
+
+```bash
+tfpl list                    # List all modules
+tfpl list -s storage         # Filter modules containing "storage"
+tfpl list -s *account*       # Filter with wildcards
+tfpl list --json             # Output as JSON for scripting
+```
+
 ### Flags
 
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--path` | | Explicit path (mutually exclusive with module name) |
 | `--init` | `-i` | Run init before the command (for `fmt` and `val`) |
+| `--example` | `-e` | Run on a specific example instead of the module (for `init`, `fmt`, `val`) |
 | `--args` | `-a` | Extra arguments to pass to terraform/tofu (can be specified multiple times) |
+| `--search` | `-s` | Filter modules using wildcards (for `list`) |
+| `--json` | | Output in JSON format (for `list` and `show`) |
 | `--version` | `-v` | Show version |
 | `--help` | `-h` | Show help |
 
@@ -115,6 +159,10 @@ tfpl fmt storage-account
 
 # Validate a base (with init first)
 tfpl val -i k8s-argocd
+
+# Run commands on a specific example
+tfpl init storage-account -e basic
+tfpl val -i storage-account -e basic
 
 # Run tests on a module
 tfpl test storage-account
@@ -130,6 +178,14 @@ tfpl init spacelift-modules
 
 # Pass extra arguments
 tfpl init storage-account -a -upgrade -a -reconfigure
+
+# Show module details
+tfpl show storage-account
+tfpl show storage-account --json
+
+# List all modules
+tfpl list
+tfpl list -s *storage* --json
 
 # Show version
 tfpl -v
@@ -153,7 +209,7 @@ test:
   # Test engine to use: "terratest", "terraform", or "tofu"
   # Default: "terratest"
   engine: terratest
-  
+
   # Additional arguments passed to the test command
   # For terratest: these are passed to "go test ./... <args>"
   # For terraform/tofu: these are passed to "terraform test <args>"
@@ -270,24 +326,6 @@ go test ./...
 
 ```bash
 go build -o tfpl .
-```
-
-### Project Structure
-
-```
-/
-├── cmd/
-│   └── root.go           # Main command definitions using cobra
-├── internal/
-│   ├── config/
-│   │   └── config.go     # YAML configuration loading
-│   ├── finder/
-│   │   └── finder.go     # Module discovery with recursive search
-│   └── terraform/
-│       └── terraform.go  # Terraform/tofu command execution
-├── main.go               # Entry point
-├── go.mod                # Go modules file
-└── README.md             # This file
 ```
 
 ## License
