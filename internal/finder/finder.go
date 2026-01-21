@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+// skipDirs contains directory names that should be skipped during module discovery
+var skipDirs = map[string]bool{
+	".terraform":   true,
+	".git":         true,
+	"node_modules": true,
+}
+
 // FindModule searches for a module with the given name in the specified search path
 // It recursively searches subdirectories and returns all matching directories
 // Only directories containing .tf or .tf.json files are considered valid modules
@@ -19,6 +26,11 @@ func FindModule(searchPath, moduleName string) ([]string, error) {
 
 		if !d.IsDir() {
 			return nil
+		}
+
+		// Skip excluded directories
+		if skipDirs[d.Name()] {
+			return filepath.SkipDir
 		}
 
 		// Check if directory name matches the module name
@@ -74,6 +86,11 @@ func ListAllModules(searchPath string) (map[string]string, error) {
 			return nil
 		}
 
+		// Skip excluded directories
+		if skipDirs[d.Name()] {
+			return filepath.SkipDir
+		}
+
 		// Check if this directory contains terraform files
 		if hasTerraformFiles(path) {
 			// Use the directory name as the module name
@@ -100,36 +117,36 @@ func MatchesWildcard(name, pattern string) bool {
 	// Convert wildcard pattern to a simple match
 	// Split by * to get the parts that must be present
 	parts := strings.Split(pattern, "*")
-	
+
 	// If no wildcards, do exact match
 	if len(parts) == 1 {
 		return name == pattern
 	}
-	
+
 	pos := 0
 	for i, part := range parts {
 		if part == "" {
 			continue
 		}
-		
+
 		idx := strings.Index(name[pos:], part)
 		if idx == -1 {
 			return false
 		}
-		
+
 		// For the first part, it must be at the start (unless pattern starts with *)
 		if i == 0 && pattern[0] != '*' && idx != 0 {
 			return false
 		}
-		
+
 		pos += idx + len(part)
 	}
-	
+
 	// For the last part, check if pattern ends with *
 	if len(parts) > 0 && parts[len(parts)-1] != "" && !strings.HasSuffix(pattern, "*") {
 		// Pattern doesn't end with *, so the last part must be at the end
 		return strings.HasSuffix(name, parts[len(parts)-1])
 	}
-	
+
 	return true
 }
