@@ -114,17 +114,10 @@ func collectModules(basePath, searchFilter string) ([]ModuleInfo, error) {
 	return allModules, nil
 }
 
-// sortModules sorts modules by type (component, base, project) then alphabetically by name
+// sortModules sorts modules alphabetically by path
 func sortModules(modules []ModuleInfo) {
 	sort.Slice(modules, func(i, j int) bool {
-		// First compare by type order
-		orderI := ModuleTypeOrder[modules[i].Type]
-		orderJ := ModuleTypeOrder[modules[j].Type]
-		if orderI != orderJ {
-			return orderI < orderJ
-		}
-		// Then compare by name
-		return modules[i].Name < modules[j].Name
+		return modules[i].Path < modules[j].Path
 	})
 }
 
