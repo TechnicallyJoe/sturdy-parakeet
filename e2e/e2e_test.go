@@ -617,4 +617,3 @@ func TestE2E_PlanWithInitFlag(t *testing.T) {
 		t.Errorf("expected 'plan' in output, got: %s", outputStr)
 	}
 }
-

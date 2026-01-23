@@ -8,7 +8,7 @@ module "naming" {
 
 # Custom suffix example
 module "naming_with_suffix" {
-  source = "Azure/naming/azurerm"
+  source  = "Azure/naming/azurerm"
   version = "0.4.3"
 
   suffix = ["dev", "westeu"]
