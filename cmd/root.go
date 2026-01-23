@@ -12,8 +12,9 @@ import (
 // version info set by ldflags at build time
 var (
 	version = "dev"
-	commit  = "none"
-	date    = "unknown"
+	// commit and date are available for future use (set by ldflags at build time)
+	_ = "none"    // commit
+	_ = "unknown" // date
 )
 
 var (
