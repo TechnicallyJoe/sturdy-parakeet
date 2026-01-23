@@ -4,12 +4,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/TechnicallyJoe/sturdy-parakeet/internal/config"
-	"github.com/TechnicallyJoe/sturdy-parakeet/internal/terraform"
+	"github.com/TechnicallyJoe/tfpl/internal/config"
+	"github.com/TechnicallyJoe/tfpl/internal/terraform"
 	"github.com/spf13/cobra"
 )
 
-const version = "1.0.0"
+// version info set by ldflags at build time
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
 
 var (
 	cfg    *config.Config

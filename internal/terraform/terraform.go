@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/TechnicallyJoe/sturdy-parakeet/internal/config"
+	"github.com/TechnicallyJoe/tfpl/internal/config"
 )
 
 // Runner executes terraform/tofu commands using configuration

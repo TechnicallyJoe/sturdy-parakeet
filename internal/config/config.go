@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/TechnicallyJoe/sturdy-parakeet/internal/tasks"
+	"github.com/TechnicallyJoe/tfpl/internal/tasks"
 	"gopkg.in/yaml.v3"
 )
 

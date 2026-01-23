@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/TechnicallyJoe/sturdy-parakeet/internal/config"
+	"github.com/TechnicallyJoe/tfpl/internal/config"
 )
 
 // Tests for getBasePath

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/TechnicallyJoe/sturdy-parakeet/internal/tasks"
+	"github.com/TechnicallyJoe/tfpl/internal/tasks"
 	"github.com/spf13/cobra"
 )
 

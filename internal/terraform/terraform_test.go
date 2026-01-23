@@ -3,7 +3,7 @@ package terraform
 import (
 	"testing"
 
-	"github.com/TechnicallyJoe/sturdy-parakeet/internal/config"
+	"github.com/TechnicallyJoe/tfpl/internal/config"
 )
 
 func TestNewRunner(t *testing.T) {

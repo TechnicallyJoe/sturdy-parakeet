@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/TechnicallyJoe/sturdy-parakeet/internal/config"
+	"github.com/TechnicallyJoe/tfpl/internal/config"
 )
 
 func TestDirHasContent_Empty(t *testing.T) {

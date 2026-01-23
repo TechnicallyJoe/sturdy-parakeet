@@ -1,4 +1,4 @@
-module github.com/TechnicallyJoe/sturdy-parakeet
+module github.com/TechnicallyJoe/tfpl
 
 go 1.25
 

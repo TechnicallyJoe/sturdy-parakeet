@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/TechnicallyJoe/sturdy-parakeet/internal/finder"
-	"github.com/TechnicallyJoe/sturdy-parakeet/internal/spacelift"
+	"github.com/TechnicallyJoe/tfpl/internal/finder"
+	"github.com/TechnicallyJoe/tfpl/internal/spacelift"
 	"github.com/spf13/cobra"
 )
 

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/TechnicallyJoe/sturdy-parakeet/cmd"
+	"github.com/TechnicallyJoe/tfpl/cmd"
 )
 
 func main() {

@@ -18,20 +18,14 @@ A command-line tool for working with polylith-style Terraform repositories. `tfp
 ### Using go install
 
 ```bash
-go install github.com/TechnicallyJoe/sturdy-parakeet@latest
-```
-
-The binary will be named `sturdy-parakeet`. You can rename it to `tfpl`:
-
-```bash
-mv $(go env GOPATH)/bin/sturdy-parakeet $(go env GOPATH)/bin/tfpl
+go install github.com/TechnicallyJoe/tfpl@latest
 ```
 
 ### Building from source
 
 ```bash
-git clone https://github.com/TechnicallyJoe/sturdy-parakeet.git
-cd sturdy-parakeet
+git clone https://github.com/TechnicallyJoe/tfpl.git
+cd tfpl
 go build -o tfpl .
 ```
 
@@ -328,10 +322,83 @@ go test ./...
 go build -o tfpl .
 ```
 
-## License
+## Releases
 
-[Add your license here]
+Releases are automated via [GoReleaser](https://goreleaser.com/) when a version tag is pushed.
+
+### Creating a Release
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This triggers the release workflow which:
+- Builds binaries for Linux, macOS, and Windows (amd64/arm64)
+- Creates a GitHub Release with changelog
+- Uploads binaries and checksums
+
+### Download
+
+Download the latest release from the [Releases page](https://github.com/TechnicallyJoe/tfpl/releases).
+
+## CI/CD
+
+This project uses GitHub Actions for continuous integration:
+
+| Workflow | Purpose |
+|----------|---------|
+| **CI** | Runs on every push/PR: linting, security scanning, tests, build |
+| **Release** | Triggered on version tags: builds and publishes releases |
+| **CodeQL** | Weekly security analysis |
+| **Dependabot** | Automated dependency updates |
+
+### Security
+
+- **govulncheck**: Scans Go dependencies for known vulnerabilities
+- **gosec**: Static security analysis via golangci-lint
+- **CodeQL**: Deep security analysis (weekly)
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Commit Message Convention
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) for clear history and automated changelogs:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+```
+
+**Types:**
+| Type | Description |
+|------|-------------|
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `docs:` | Documentation changes |
+| `chore:` | Maintenance tasks |
+| `refactor:` | Code refactoring |
+| `test:` | Adding or updating tests |
+
+**Examples:**
+```
+feat(tasks): add support for custom shell configuration
+fix(finder): handle symlinks in module discovery
+docs: update README with CI/CD instructions
+chore(deps): update cobra to v1.9.0
+```
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feat/my-feature`)
+3. Make your changes with conventional commit messages
+4. Run tests (`go test ./...`)
+5. Submit a Pull Request
+
+## License
+
+[Add your license here]

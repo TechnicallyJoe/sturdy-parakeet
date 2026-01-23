@@ -137,6 +137,37 @@ Edit [internal/finder/finder.go](internal/finder/finder.go). Update `skipDirs` m
 2. Update `DefaultConfig()` with default value
 3. Add validation in `Load()` if needed
 
+## Commit Message Convention
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/). All commits should follow this format:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+```
+
+### Types
+| Type | Description | Example |
+|------|-------------|---------|
+| `feat` | New feature | `feat(tasks): add shell configuration support` |
+| `fix` | Bug fix | `fix(finder): handle symlinks correctly` |
+| `docs` | Documentation | `docs: update README with examples` |
+| `chore` | Maintenance | `chore(deps): update cobra to v1.9.0` |
+| `refactor` | Code refactoring | `refactor(cmd): extract helper functions` |
+| `test` | Tests | `test(e2e): add plan command tests` |
+
+### Breaking Changes
+Add `!` after type or include `BREAKING CHANGE:` in footer:
+```
+feat!: change task command argument order
+```
+
+### Why Conventional Commits
+- GoReleaser auto-generates changelogs grouped by type
+- Clear git history for contributors
+- Enables automated versioning if needed
+
 ## Maintaining This Document
 
 **Update this file when refactoring yields specific patterns.** Examples of patterns worth documenting:
