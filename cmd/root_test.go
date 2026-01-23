@@ -11,7 +11,7 @@ import (
 // Tests for root command flags
 
 func TestArgsFlag_Empty(t *testing.T) {
-	argsFlag = []string{}
+	resetFlags(t)
 
 	if len(argsFlag) != 0 {
 		t.Errorf("expected empty argsFlag, got %v", argsFlag)
@@ -19,6 +19,7 @@ func TestArgsFlag_Empty(t *testing.T) {
 }
 
 func TestArgsFlag_SingleArg(t *testing.T) {
+	resetFlags(t)
 	argsFlag = []string{"-upgrade"}
 
 	if len(argsFlag) != 1 {
@@ -28,11 +29,10 @@ func TestArgsFlag_SingleArg(t *testing.T) {
 	if argsFlag[0] != "-upgrade" {
 		t.Errorf("expected '-upgrade', got '%s'", argsFlag[0])
 	}
-
-	argsFlag = []string{}
 }
 
 func TestArgsFlag_MultipleArgs(t *testing.T) {
+	resetFlags(t)
 	argsFlag = []string{"-upgrade", "-reconfigure", "-backend=false"}
 
 	if len(argsFlag) != 3 {
@@ -45,11 +45,10 @@ func TestArgsFlag_MultipleArgs(t *testing.T) {
 			t.Errorf("arg[%d] = '%s', expected '%s'", i, arg, expected[i])
 		}
 	}
-
-	argsFlag = []string{}
 }
 
 func TestArgsFlag_PreservesOrder(t *testing.T) {
+	resetFlags(t)
 	argsFlag = []string{"-var=foo=bar", "-var=baz=qux", "-target=module.test"}
 
 	expected := []string{"-var=foo=bar", "-var=baz=qux", "-target=module.test"}
@@ -59,26 +58,19 @@ func TestArgsFlag_PreservesOrder(t *testing.T) {
 			break
 		}
 	}
-
-	argsFlag = []string{}
 }
 
 func TestPathFlag_Reset(t *testing.T) {
+	resetFlags(t)
 	pathFlag = "/some/path"
 
 	if pathFlag != "/some/path" {
 		t.Errorf("expected '/some/path', got '%s'", pathFlag)
 	}
-
-	pathFlag = ""
-
-	if pathFlag != "" {
-		t.Errorf("expected empty string after reset, got '%s'", pathFlag)
-	}
 }
 
 func TestInitFlag_Default(t *testing.T) {
-	initFlag = false
+	resetFlags(t)
 
 	if initFlag != false {
 		t.Error("expected initFlag to be false by default")
@@ -86,7 +78,7 @@ func TestInitFlag_Default(t *testing.T) {
 }
 
 func TestSearchFlag_Default(t *testing.T) {
-	searchFlag = ""
+	resetFlags(t)
 
 	if searchFlag != "" {
 		t.Errorf("expected empty searchFlag, got '%s'", searchFlag)
@@ -97,17 +89,16 @@ func TestSearchFlag_Default(t *testing.T) {
 
 func TestTestCommand_WithModuleName(t *testing.T) {
 	tmpDir := t.TempDir()
+	withConfig(t, &config.Config{
+		Root:   tmpDir,
+		Binary: "terraform",
+		Test:   &config.TestConfig{Engine: "terratest", Args: ""},
+	})
+	withWorkingDir(t, tmpDir)
 
-	modulePath := filepath.Join(tmpDir, DirComponents, "test-module")
-	if err := os.MkdirAll(modulePath, 0755); err != nil {
-		t.Fatalf("failed to create module directory: %v", err)
-	}
+	modulePath := createTerraformModule(t, tmpDir, filepath.Join(DirComponents, "test-module"))
 
-	tfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
-		t.Fatalf("failed to create .tf file: %v", err)
-	}
-
+	// Add go.mod and test file for terratest
 	goMod := filepath.Join(modulePath, "go.mod")
 	if err := os.WriteFile(goMod, []byte("module test\n\ngo 1.21\n"), 0644); err != nil {
 		t.Fatalf("failed to create go.mod: %v", err)
@@ -126,18 +117,6 @@ func TestExample(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	cfg = &config.Config{
-		Root:   tmpDir,
-		Binary: "terraform",
-		Test:   &config.TestConfig{Engine: "terratest", Args: ""},
-	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
-
 	result, err := findModuleInAllDirs("test-module")
 	if err != nil {
 		t.Fatalf("findModuleInAllDirs returned error: %v", err)
@@ -150,6 +129,7 @@ func TestExample(t *testing.T) {
 
 func TestTestCommand_WithExplicitPath(t *testing.T) {
 	tmpDir := t.TempDir()
+	resetFlags(t)
 
 	modulePath := filepath.Join(tmpDir, "test-module")
 	if err := os.MkdirAll(modulePath, 0755); err != nil {
@@ -163,7 +143,6 @@ func TestTestCommand_WithExplicitPath(t *testing.T) {
 
 	pathFlag = modulePath
 	result, err := resolveTargetPath([]string{})
-	pathFlag = ""
 
 	if err != nil {
 		t.Fatalf("resolveTargetPath returned error: %v", err)
@@ -175,6 +154,7 @@ func TestTestCommand_WithExplicitPath(t *testing.T) {
 }
 
 func TestTestCommand_WithArgs(t *testing.T) {
+	resetFlags(t)
 	testArgs := []string{"-v", "-timeout=30m", "-count=1"}
 	argsFlag = testArgs
 
@@ -187,23 +167,20 @@ func TestTestCommand_WithArgs(t *testing.T) {
 			t.Errorf("arg[%d] = '%s', expected '%s'", i, arg, testArgs[i])
 		}
 	}
-
-	argsFlag = []string{}
 }
 
 func TestTestCommand_FindsResourceGroup(t *testing.T) {
 	tmpDir := t.TempDir()
+	withConfig(t, &config.Config{
+		Root:   tmpDir,
+		Binary: "terraform",
+		Test:   &config.TestConfig{Engine: "terratest", Args: ""},
+	})
+	withWorkingDir(t, tmpDir)
 
-	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "resource-group")
-	if err := os.MkdirAll(modulePath, 0755); err != nil {
-		t.Fatalf("failed to create module directory: %v", err)
-	}
+	modulePath := createTerraformModule(t, tmpDir, filepath.Join(DirComponents, "azurerm", "resource-group"))
 
-	tfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(tfFile, []byte("# terraform resource group"), 0644); err != nil {
-		t.Fatalf("failed to create .tf file: %v", err)
-	}
-
+	// Add tests directory with test files
 	testsPath := filepath.Join(modulePath, "tests")
 	if err := os.MkdirAll(testsPath, 0755); err != nil {
 		t.Fatalf("failed to create tests directory: %v", err)
@@ -226,18 +203,6 @@ func TestBasicExample(t *testing.T) {
 	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-
-	cfg = &config.Config{
-		Root:   tmpDir,
-		Binary: "terraform",
-		Test:   &config.TestConfig{Engine: "terratest", Args: ""},
-	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
 
 	result, err := findModuleInAllDirs("resource-group")
 	if err != nil {

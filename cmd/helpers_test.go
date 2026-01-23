@@ -12,13 +12,8 @@ import (
 
 func TestGetBasePath_EmptyRoot(t *testing.T) {
 	tmpDir := t.TempDir()
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
 	result, err := getBasePath()
 	if err != nil {
@@ -32,13 +27,8 @@ func TestGetBasePath_EmptyRoot(t *testing.T) {
 
 func TestGetBasePath_RelativeRoot(t *testing.T) {
 	tmpDir := t.TempDir()
-	cfg = &config.Config{Root: "iac", Binary: "terraform"}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
+	withConfig(t, &config.Config{Root: "iac", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
 	result, err := getBasePath()
 	if err != nil {
@@ -53,7 +43,7 @@ func TestGetBasePath_RelativeRoot(t *testing.T) {
 
 func TestGetBasePath_AbsoluteRoot(t *testing.T) {
 	tmpDir := t.TempDir()
-	cfg = &config.Config{Root: tmpDir, Binary: "terraform"}
+	withConfig(t, &config.Config{Root: tmpDir, Binary: "terraform"})
 
 	result, err := getBasePath()
 	if err != nil {
@@ -119,7 +109,7 @@ func TestResolveExplicitPath_NonExistent(t *testing.T) {
 // Tests for resolveTargetPath
 
 func TestResolveTargetPath_NoArgs(t *testing.T) {
-	pathFlag = ""
+	resetFlags(t)
 
 	_, err := resolveTargetPath([]string{})
 	if err == nil {
@@ -128,18 +118,18 @@ func TestResolveTargetPath_NoArgs(t *testing.T) {
 }
 
 func TestResolveTargetPath_PathMutuallyExclusive(t *testing.T) {
+	resetFlags(t)
 	pathFlag = "/some/path"
 
 	_, err := resolveTargetPath([]string{"storage"})
 	if err == nil {
 		t.Error("expected error when path is combined with module name")
 	}
-
-	pathFlag = ""
 }
 
 func TestResolveTargetPath_WithExplicitPath(t *testing.T) {
 	tmpDir := t.TempDir()
+	resetFlags(t)
 
 	testPath := filepath.Join(tmpDir, "my-module")
 	if err := os.MkdirAll(testPath, 0755); err != nil {
@@ -156,32 +146,16 @@ func TestResolveTargetPath_WithExplicitPath(t *testing.T) {
 	if result != testPath {
 		t.Errorf("expected '%s', got '%s'", testPath, result)
 	}
-
-	pathFlag = ""
 }
 
 // Tests for findModuleInAllDirs
 
 func TestFindModuleInAllDirs_ComponentFound(t *testing.T) {
 	tmpDir := t.TempDir()
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
-	if err := os.MkdirAll(modulePath, 0755); err != nil {
-		t.Fatalf("failed to create module directory: %v", err)
-	}
-
-	tfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
-		t.Fatalf("failed to create .tf file: %v", err)
-	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
+	modulePath := createTerraformModule(t, tmpDir, filepath.Join(DirComponents, "azurerm", "storage-account"))
 
 	result, err := findModuleInAllDirs("storage-account")
 	if err != nil {
@@ -195,24 +169,10 @@ func TestFindModuleInAllDirs_ComponentFound(t *testing.T) {
 
 func TestFindModuleInAllDirs_BaseFound(t *testing.T) {
 	tmpDir := t.TempDir()
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	modulePath := filepath.Join(tmpDir, DirBases, "k8s-argocd")
-	if err := os.MkdirAll(modulePath, 0755); err != nil {
-		t.Fatalf("failed to create module directory: %v", err)
-	}
-
-	tfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
-		t.Fatalf("failed to create .tf file: %v", err)
-	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
+	modulePath := createTerraformModule(t, tmpDir, filepath.Join(DirBases, "k8s-argocd"))
 
 	result, err := findModuleInAllDirs("k8s-argocd")
 	if err != nil {
@@ -226,24 +186,10 @@ func TestFindModuleInAllDirs_BaseFound(t *testing.T) {
 
 func TestFindModuleInAllDirs_ProjectFound(t *testing.T) {
 	tmpDir := t.TempDir()
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	modulePath := filepath.Join(tmpDir, DirProjects, "prod-infra")
-	if err := os.MkdirAll(modulePath, 0755); err != nil {
-		t.Fatalf("failed to create module directory: %v", err)
-	}
-
-	tfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
-		t.Fatalf("failed to create .tf file: %v", err)
-	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
+	modulePath := createTerraformModule(t, tmpDir, filepath.Join(DirProjects, "prod-infra"))
 
 	result, err := findModuleInAllDirs("prod-infra")
 	if err != nil {
@@ -257,20 +203,14 @@ func TestFindModuleInAllDirs_ProjectFound(t *testing.T) {
 
 func TestFindModuleInAllDirs_ModuleNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-
-	cfg = &config.Config{Root: "", Binary: "terraform"}
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
 	for _, dir := range ModuleDirs {
 		if err := os.MkdirAll(filepath.Join(tmpDir, dir), 0755); err != nil {
 			t.Fatalf("failed to create %s directory: %v", dir, err)
 		}
 	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
 
 	_, err := findModuleInAllDirs("nonexistent")
 	if err == nil {
@@ -280,14 +220,8 @@ func TestFindModuleInAllDirs_ModuleNotFound(t *testing.T) {
 
 func TestFindModuleInAllDirs_NoDirectories(t *testing.T) {
 	tmpDir := t.TempDir()
-
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
 	_, err := findModuleInAllDirs("any-module")
 	if err == nil {
@@ -297,24 +231,10 @@ func TestFindModuleInAllDirs_NoDirectories(t *testing.T) {
 
 func TestFindModuleInAllDirs_WithConfigRoot(t *testing.T) {
 	tmpDir := t.TempDir()
+	withConfig(t, &config.Config{Root: "iac", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
-	cfg = &config.Config{Root: "iac", Binary: "terraform"}
-
-	modulePath := filepath.Join(tmpDir, "iac", DirComponents, "storage-account")
-	if err := os.MkdirAll(modulePath, 0755); err != nil {
-		t.Fatalf("failed to create module directory: %v", err)
-	}
-
-	tfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
-		t.Fatalf("failed to create .tf file: %v", err)
-	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
+	modulePath := createTerraformModule(t, tmpDir, filepath.Join("iac", DirComponents, "storage-account"))
 
 	result, err := findModuleInAllDirs("storage-account")
 	if err != nil {
@@ -328,27 +248,11 @@ func TestFindModuleInAllDirs_WithConfigRoot(t *testing.T) {
 
 func TestFindModuleInAllDirs_NameClash(t *testing.T) {
 	tmpDir := t.TempDir()
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	module1 := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
-	module2 := filepath.Join(tmpDir, DirBases, "storage-account")
-
-	for _, path := range []string{module1, module2} {
-		if err := os.MkdirAll(path, 0755); err != nil {
-			t.Fatalf("failed to create module directory: %v", err)
-		}
-		tfFile := filepath.Join(path, "main.tf")
-		if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
-			t.Fatalf("failed to create .tf file: %v", err)
-		}
-	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
+	createTerraformModule(t, tmpDir, filepath.Join(DirComponents, "azurerm", "storage-account"))
+	createTerraformModule(t, tmpDir, filepath.Join(DirBases, "storage-account"))
 
 	_, err := findModuleInAllDirs("storage-account")
 	if err == nil {
@@ -411,26 +315,11 @@ another_key: 123`
 
 func TestResolveTargetWithExample_NoExample(t *testing.T) {
 	tmpDir := t.TempDir()
+	resetFlags(t)
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
-	if err := os.MkdirAll(modulePath, 0755); err != nil {
-		t.Fatalf("failed to create module directory: %v", err)
-	}
-
-	tfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
-		t.Fatalf("failed to create .tf file: %v", err)
-	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
-
-	pathFlag = ""
+	modulePath := createTerraformModule(t, tmpDir, filepath.Join(DirComponents, "azurerm", "storage-account"))
 
 	result, err := resolveTargetWithExample([]string{"storage-account"}, "")
 	if err != nil {
@@ -444,19 +333,14 @@ func TestResolveTargetWithExample_NoExample(t *testing.T) {
 
 func TestResolveTargetWithExample_WithExample(t *testing.T) {
 	tmpDir := t.TempDir()
+	resetFlags(t)
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
+	modulePath := createTerraformModule(t, tmpDir, filepath.Join(DirComponents, "azurerm", "storage-account"))
 	examplePath := filepath.Join(modulePath, "examples", "basic")
 	if err := os.MkdirAll(examplePath, 0755); err != nil {
 		t.Fatalf("failed to create example directory: %v", err)
-	}
-
-	// Create main.tf in the module
-	moduleTfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(moduleTfFile, []byte("# module terraform"), 0644); err != nil {
-		t.Fatalf("failed to create module main.tf: %v", err)
 	}
 
 	// Create main.tf in the example
@@ -464,14 +348,6 @@ func TestResolveTargetWithExample_WithExample(t *testing.T) {
 	if err := os.WriteFile(exampleTfFile, []byte("# example terraform"), 0644); err != nil {
 		t.Fatalf("failed to create example main.tf: %v", err)
 	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
-
-	pathFlag = ""
 
 	result, err := resolveTargetWithExample([]string{"storage-account"}, "basic")
 	if err != nil {
@@ -485,26 +361,11 @@ func TestResolveTargetWithExample_WithExample(t *testing.T) {
 
 func TestResolveTargetWithExample_ExampleNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
+	resetFlags(t)
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
-	if err := os.MkdirAll(modulePath, 0755); err != nil {
-		t.Fatalf("failed to create module directory: %v", err)
-	}
-
-	tfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(tfFile, []byte("# terraform"), 0644); err != nil {
-		t.Fatalf("failed to create .tf file: %v", err)
-	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
-
-	pathFlag = ""
+	createTerraformModule(t, tmpDir, filepath.Join(DirComponents, "azurerm", "storage-account"))
 
 	_, err := resolveTargetWithExample([]string{"storage-account"}, "nonexistent")
 	if err == nil {
@@ -514,30 +375,17 @@ func TestResolveTargetWithExample_ExampleNotFound(t *testing.T) {
 
 func TestResolveTargetWithExample_ExampleMissingTfFiles(t *testing.T) {
 	tmpDir := t.TempDir()
+	resetFlags(t)
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
+	modulePath := createTerraformModule(t, tmpDir, filepath.Join(DirComponents, "azurerm", "storage-account"))
 	examplePath := filepath.Join(modulePath, "examples", "basic")
 	if err := os.MkdirAll(examplePath, 0755); err != nil {
 		t.Fatalf("failed to create example directory: %v", err)
 	}
 
-	// Create main.tf in the module only
-	moduleTfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(moduleTfFile, []byte("# module terraform"), 0644); err != nil {
-		t.Fatalf("failed to create module main.tf: %v", err)
-	}
-
 	// No .tf files in example directory
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
-
-	pathFlag = ""
 
 	_, err := resolveTargetWithExample([]string{"storage-account"}, "basic")
 	if err == nil {
@@ -547,19 +395,14 @@ func TestResolveTargetWithExample_ExampleMissingTfFiles(t *testing.T) {
 
 func TestResolveTargetWithExample_ExampleWithNonMainTf(t *testing.T) {
 	tmpDir := t.TempDir()
+	resetFlags(t)
+	withConfig(t, &config.Config{Root: "", Binary: "terraform"})
+	withWorkingDir(t, tmpDir)
 
-	cfg = &config.Config{Root: "", Binary: "terraform"}
-
-	modulePath := filepath.Join(tmpDir, DirComponents, "azurerm", "storage-account")
+	modulePath := createTerraformModule(t, tmpDir, filepath.Join(DirComponents, "azurerm", "storage-account"))
 	examplePath := filepath.Join(modulePath, "examples", "basic")
 	if err := os.MkdirAll(examplePath, 0755); err != nil {
 		t.Fatalf("failed to create example directory: %v", err)
-	}
-
-	// Create main.tf in the module
-	moduleTfFile := filepath.Join(modulePath, "main.tf")
-	if err := os.WriteFile(moduleTfFile, []byte("# module terraform"), 0644); err != nil {
-		t.Fatalf("failed to create module main.tf: %v", err)
 	}
 
 	// Create only variables.tf in the example (not main.tf)
@@ -567,14 +410,6 @@ func TestResolveTargetWithExample_ExampleWithNonMainTf(t *testing.T) {
 	if err := os.WriteFile(exampleTfFile, []byte("# example variables"), 0644); err != nil {
 		t.Fatalf("failed to create example variables.tf: %v", err)
 	}
-
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
-
-	pathFlag = ""
 
 	result, err := resolveTargetWithExample([]string{"storage-account"}, "basic")
 	if err != nil {
