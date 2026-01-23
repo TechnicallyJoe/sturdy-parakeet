@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/TechnicallyJoe/sturdy-parakeet/internal/finder"
-	"gopkg.in/yaml.v3"
 )
 
 // getBasePath returns the base path for module discovery based on cfg.Root
@@ -145,31 +144,9 @@ func resolveTargetWithExample(args []string, exampleName string) (string, error)
 	}
 
 	// Check if it contains any .tf file (valid terraform module)
-	tfFiles, err := filepath.Glob(filepath.Join(examplePath, "*.tf"))
-	if err != nil || len(tfFiles) == 0 {
+	if !finder.HasTerraformFiles(examplePath) {
 		return "", fmt.Errorf("example '%s' is not a valid terraform module (no .tf files found)", exampleName)
 	}
 
 	return examplePath, nil
-}
-
-// spaceliftConfig represents the structure of .spacelift/config.yml
-type spaceliftConfig struct {
-	ModuleVersion string `yaml:"module_version"`
-}
-
-// readModuleVersion reads the module_version from .spacelift/config.yml
-func readModuleVersion(modulePath string) string {
-	configPath := filepath.Join(modulePath, DirSpacelift, FileSpaceliftConfig)
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return ""
-	}
-
-	var cfg spaceliftConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return ""
-	}
-
-	return cfg.ModuleVersion
 }

@@ -10,7 +10,7 @@ import (
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Show current configuration",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Current configuration:")
 		fmt.Printf("  Root:   %s\n", cfg.Root)
 		fmt.Printf("  Binary: %s\n", cfg.Binary)
@@ -26,6 +26,7 @@ var configCmd = &cobra.Command{
 		} else {
 			fmt.Printf("  Args:   (none)\n")
 		}
+		return nil
 	},
 }
 

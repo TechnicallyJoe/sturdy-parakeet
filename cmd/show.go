@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/TechnicallyJoe/sturdy-parakeet/internal/finder"
 	"github.com/spf13/cobra"
 )
 
@@ -148,8 +150,7 @@ func listItems(path, basePath string) []ItemInfo {
 		// Only include directories that contain .tf files
 		if entry.IsDir() {
 			dirPath := filepath.Join(path, entry.Name())
-			tfFiles, err := filepath.Glob(filepath.Join(dirPath, "*.tf"))
-			if err == nil && len(tfFiles) > 0 {
+			if finder.HasTerraformFiles(dirPath) {
 				relativePath, err := filepath.Rel(basePath, dirPath)
 				if err != nil {
 					relativePath = dirPath
@@ -178,7 +179,7 @@ func listTestFiles(path, basePath string) []ItemInfo {
 		// Only include files matching *_test.go pattern
 		if !entry.IsDir() {
 			name := entry.Name()
-			if len(name) > 8 && name[len(name)-8:] == "_test.go" {
+			if strings.HasSuffix(name, "_test.go") {
 				filePath := filepath.Join(path, name)
 				relativePath, err := filepath.Rel(basePath, filePath)
 				if err != nil {

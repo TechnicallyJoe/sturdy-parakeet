@@ -40,7 +40,7 @@ func FindModule(searchPath, moduleName string) ([]string, error) {
 		// Check if directory name matches the module name
 		if d.Name() == moduleName {
 			// Verify it contains .tf or .tf.json files
-			if hasTerraformFiles(path) {
+			if HasTerraformFiles(path) {
 				matches = append(matches, path)
 			}
 		}
@@ -55,8 +55,8 @@ func FindModule(searchPath, moduleName string) ([]string, error) {
 	return matches, nil
 }
 
-// hasTerraformFiles checks if a directory contains any .tf or .tf.json files
-func hasTerraformFiles(dir string) bool {
+// HasTerraformFiles checks if a directory contains any .tf or .tf.json files
+func HasTerraformFiles(dir string) bool {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return false
@@ -96,7 +96,7 @@ func ListAllModules(searchPath string) (map[string]string, error) {
 		}
 
 		// Check if this directory contains terraform files
-		if hasTerraformFiles(path) {
+		if HasTerraformFiles(path) {
 			// Use the directory name as the module name
 			moduleName := d.Name()
 			// Store the path (only if not already seen or if it's a shorter path)

@@ -228,16 +228,16 @@ func TestHasTerraformFiles(t *testing.T) {
 				}
 			}
 
-			result := hasTerraformFiles(tmpDir)
+			result := HasTerraformFiles(tmpDir)
 			if result != tt.expected {
-				t.Errorf("hasTerraformFiles() = %v, expected %v", result, tt.expected)
+				t.Errorf("HasTerraformFiles() = %v, expected %v", result, tt.expected)
 			}
 		})
 	}
 }
 
 func TestHasTerraformFiles_NonExistentDir(t *testing.T) {
-	result := hasTerraformFiles("/non/existent/path")
+	result := HasTerraformFiles("/non/existent/path")
 	if result != false {
 		t.Error("expected false for non-existent directory")
 	}

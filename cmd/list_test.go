@@ -103,33 +103,33 @@ func TestCollectModules_EmptyResult(t *testing.T) {
 	}
 }
 
-func TestSortModules_ByTypeAndName(t *testing.T) {
+func TestSortModules_ByPath(t *testing.T) {
 	modules := []ModuleInfo{
-		{Name: "zebra", Type: TypeProject},
-		{Name: "alpha", Type: TypeComponent},
-		{Name: "beta", Type: TypeBase},
-		{Name: "gamma", Type: TypeComponent},
-		{Name: "delta", Type: TypeBase},
+		{Name: "zebra", Type: TypeProject, Path: "projects/zebra"},
+		{Name: "alpha", Type: TypeComponent, Path: "components/alpha"},
+		{Name: "beta", Type: TypeBase, Path: "bases/beta"},
+		{Name: "gamma", Type: TypeComponent, Path: "components/gamma"},
+		{Name: "delta", Type: TypeBase, Path: "bases/delta"},
 	}
 
 	sortModules(modules)
 
-	// Expected order: components (alpha, gamma), bases (beta, delta), projects (zebra)
+	// Expected order: sorted alphabetically by path
 	expected := []struct {
-		name    string
-		modType string
+		name string
+		path string
 	}{
-		{"alpha", TypeComponent},
-		{"gamma", TypeComponent},
-		{"beta", TypeBase},
-		{"delta", TypeBase},
-		{"zebra", TypeProject},
+		{"beta", "bases/beta"},
+		{"delta", "bases/delta"},
+		{"alpha", "components/alpha"},
+		{"gamma", "components/gamma"},
+		{"zebra", "projects/zebra"},
 	}
 
 	for i, exp := range expected {
-		if modules[i].Name != exp.name || modules[i].Type != exp.modType {
+		if modules[i].Name != exp.name || modules[i].Path != exp.path {
 			t.Errorf("position %d: expected {%s, %s}, got {%s, %s}",
-				i, exp.name, exp.modType, modules[i].Name, modules[i].Type)
+				i, exp.name, exp.path, modules[i].Name, modules[i].Path)
 		}
 	}
 }
