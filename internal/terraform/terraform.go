@@ -27,7 +27,7 @@ func (r *Runner) Binary() string {
 // RunInit executes terraform/tofu init in the specified directory
 func (r *Runner) RunInit(dir string, extraArgs ...string) error {
 	args := append([]string{"init"}, extraArgs...)
-	cmd := exec.Command(r.config.Binary, args...)
+	cmd := exec.Command(r.config.Binary, args...) //nolint:gosec // Binary is validated to be terraform or tofu
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -40,7 +40,7 @@ func (r *Runner) RunInit(dir string, extraArgs ...string) error {
 // RunFmt executes terraform/tofu fmt in the specified directory
 func (r *Runner) RunFmt(dir string, extraArgs ...string) error {
 	args := append([]string{"fmt"}, extraArgs...)
-	cmd := exec.Command(r.config.Binary, args...)
+	cmd := exec.Command(r.config.Binary, args...) //nolint:gosec // Binary is validated to be terraform or tofu
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -53,7 +53,7 @@ func (r *Runner) RunFmt(dir string, extraArgs ...string) error {
 // RunValidate executes terraform/tofu validate in the specified directory
 func (r *Runner) RunValidate(dir string, extraArgs ...string) error {
 	args := append([]string{"validate"}, extraArgs...)
-	cmd := exec.Command(r.config.Binary, args...)
+	cmd := exec.Command(r.config.Binary, args...) //nolint:gosec // Binary is validated to be terraform or tofu
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -66,7 +66,7 @@ func (r *Runner) RunValidate(dir string, extraArgs ...string) error {
 // RunPlan executes terraform/tofu plan in the specified directory
 func (r *Runner) RunPlan(dir string, extraArgs ...string) error {
 	args := append([]string{"plan"}, extraArgs...)
-	cmd := exec.Command(r.config.Binary, args...)
+	cmd := exec.Command(r.config.Binary, args...) //nolint:gosec // Binary is validated to be terraform or tofu
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -95,7 +95,7 @@ func (r *Runner) RunTest(dir string, extraArgs ...string) error {
 		// Add extra args from command line
 		cmdArgs = append(cmdArgs, extraArgs...)
 
-		cmd = exec.Command("go", cmdArgs...)
+		cmd = exec.Command("go", cmdArgs...) //nolint:gosec // cmdArgs are constructed from validated config
 		fmt.Printf("Running go %s in %s\n", strings.Join(cmdArgs, " "), dir)
 	case "terraform", "tofu":
 		// Terraform/Tofu native test command
@@ -111,7 +111,7 @@ func (r *Runner) RunTest(dir string, extraArgs ...string) error {
 		cmdArgs = append(cmdArgs, extraArgs...)
 
 		binary := r.config.Test.Engine
-		cmd = exec.Command(binary, cmdArgs...)
+		cmd = exec.Command(binary, cmdArgs...) //nolint:gosec // binary is validated to be terraform or tofu
 		fmt.Printf("Running %s %s in %s\n", binary, strings.Join(cmdArgs, " "), dir)
 	default:
 		return fmt.Errorf("unsupported test engine: %s", r.config.Test.Engine)

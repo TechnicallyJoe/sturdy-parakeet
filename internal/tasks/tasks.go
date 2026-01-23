@@ -98,7 +98,7 @@ func (r *Runner) Run(taskName, workDir string) error {
 	fmt.Printf("Running task '%s' in %s\n", taskName, workDir)
 	fmt.Printf("$ %s\n", task.Command)
 
-	cmd := exec.Command(binary, args...)
+	cmd := exec.Command(binary, args...) //nolint:gosec // binary and args are from user-defined task configuration
 	cmd.Dir = workDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
