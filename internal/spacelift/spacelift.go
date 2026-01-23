@@ -22,7 +22,7 @@ type config struct {
 // Returns empty string if the file doesn't exist or can't be parsed.
 func ReadModuleVersion(modulePath string) string {
 	configPath := filepath.Join(modulePath, DirSpacelift, FileConfig)
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) //nolint:gosec // configPath is constructed from known constants
 	if err != nil {
 		return ""
 	}

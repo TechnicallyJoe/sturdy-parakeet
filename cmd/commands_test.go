@@ -9,7 +9,7 @@ import (
 func TestInitCmd_HasExampleFlag(t *testing.T) {
 	flag := initCmd.Flags().Lookup("example")
 	if flag == nil {
-		t.Error("initCmd should have --example flag")
+		t.Fatal("initCmd should have --example flag")
 	}
 	if flag.Shorthand != "e" {
 		t.Errorf("expected shorthand 'e', got '%s'", flag.Shorthand)
@@ -19,7 +19,7 @@ func TestInitCmd_HasExampleFlag(t *testing.T) {
 func TestFmtCmd_HasExampleFlag(t *testing.T) {
 	flag := fmtCmd.Flags().Lookup("example")
 	if flag == nil {
-		t.Error("fmtCmd should have --example flag")
+		t.Fatal("fmtCmd should have --example flag")
 	}
 	if flag.Shorthand != "e" {
 		t.Errorf("expected shorthand 'e', got '%s'", flag.Shorthand)
@@ -29,7 +29,7 @@ func TestFmtCmd_HasExampleFlag(t *testing.T) {
 func TestFmtCmd_HasInitFlag(t *testing.T) {
 	flag := fmtCmd.Flags().Lookup("init")
 	if flag == nil {
-		t.Error("fmtCmd should have --init flag")
+		t.Fatal("fmtCmd should have --init flag")
 	}
 	if flag.Shorthand != "i" {
 		t.Errorf("expected shorthand 'i', got '%s'", flag.Shorthand)
@@ -39,7 +39,7 @@ func TestFmtCmd_HasInitFlag(t *testing.T) {
 func TestValCmd_HasExampleFlag(t *testing.T) {
 	flag := valCmd.Flags().Lookup("example")
 	if flag == nil {
-		t.Error("valCmd should have --example flag")
+		t.Fatal("valCmd should have --example flag")
 	}
 	if flag.Shorthand != "e" {
 		t.Errorf("expected shorthand 'e', got '%s'", flag.Shorthand)
@@ -49,7 +49,7 @@ func TestValCmd_HasExampleFlag(t *testing.T) {
 func TestValCmd_HasInitFlag(t *testing.T) {
 	flag := valCmd.Flags().Lookup("init")
 	if flag == nil {
-		t.Error("valCmd should have --init flag")
+		t.Fatal("valCmd should have --init flag")
 	}
 	if flag.Shorthand != "i" {
 		t.Errorf("expected shorthand 'i', got '%s'", flag.Shorthand)
@@ -73,7 +73,7 @@ func TestValCmd_HasValidateAlias(t *testing.T) {
 func TestListCmd_HasSearchFlag(t *testing.T) {
 	flag := listCmd.Flags().Lookup("search")
 	if flag == nil {
-		t.Error("listCmd should have --search flag")
+		t.Fatal("listCmd should have --search flag")
 	}
 	if flag.Shorthand != "s" {
 		t.Errorf("expected shorthand 's', got '%s'", flag.Shorthand)
@@ -90,7 +90,7 @@ func TestRootCmd_HasPathFlag(t *testing.T) {
 func TestRootCmd_HasArgsFlag(t *testing.T) {
 	flag := rootCmd.PersistentFlags().Lookup("args")
 	if flag == nil {
-		t.Error("rootCmd should have --args persistent flag")
+		t.Fatal("rootCmd should have --args persistent flag")
 	}
 	if flag.Shorthand != "a" {
 		t.Errorf("expected shorthand 'a', got '%s'", flag.Shorthand)

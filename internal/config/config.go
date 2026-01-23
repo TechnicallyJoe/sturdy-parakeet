@@ -77,7 +77,7 @@ func Load(startDir string) (*Config, error) {
 		configPath := filepath.Join(dir, ".tfpl.yml")
 		if _, err := os.Stat(configPath); err == nil {
 			// Found config file
-			data, err := os.ReadFile(configPath)
+			data, err := os.ReadFile(configPath) //nolint:gosec // configPath is constructed from known directory traversal
 			if err != nil {
 				return nil, fmt.Errorf("failed to read config file: %w", err)
 			}
