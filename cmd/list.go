@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/TechnicallyJoe/sturdy-parakeet/internal/finder"
+	"github.com/TechnicallyJoe/sturdy-parakeet/internal/spacelift"
 	"github.com/spf13/cobra"
 )
 
@@ -106,7 +107,7 @@ func collectModules(basePath, searchFilter string) ([]ModuleInfo, error) {
 				Name:    name,
 				Type:    getModuleType(path),
 				Path:    relativePath,
-				Version: readModuleVersion(path),
+				Version: spacelift.ReadModuleVersion(path),
 			})
 		}
 	}

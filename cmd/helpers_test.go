@@ -260,57 +260,6 @@ func TestFindModuleInAllDirs_NameClash(t *testing.T) {
 	}
 }
 
-// Tests for readModuleVersion
-
-func TestReadModuleVersion_Found(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	spaceliftDir := filepath.Join(tmpDir, ".spacelift")
-	if err := os.MkdirAll(spaceliftDir, 0755); err != nil {
-		t.Fatalf("failed to create .spacelift directory: %v", err)
-	}
-
-	configContent := `module_version: 1.2.3
-other_key: value`
-	if err := os.WriteFile(filepath.Join(spaceliftDir, "config.yml"), []byte(configContent), 0644); err != nil {
-		t.Fatalf("failed to create config.yml: %v", err)
-	}
-
-	result := readModuleVersion(tmpDir)
-	if result != "1.2.3" {
-		t.Errorf("expected '1.2.3', got '%s'", result)
-	}
-}
-
-func TestReadModuleVersion_NotFound(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	result := readModuleVersion(tmpDir)
-	if result != "" {
-		t.Errorf("expected empty string, got '%s'", result)
-	}
-}
-
-func TestReadModuleVersion_NoVersionKey(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	spaceliftDir := filepath.Join(tmpDir, ".spacelift")
-	if err := os.MkdirAll(spaceliftDir, 0755); err != nil {
-		t.Fatalf("failed to create .spacelift directory: %v", err)
-	}
-
-	configContent := `other_key: value
-another_key: 123`
-	if err := os.WriteFile(filepath.Join(spaceliftDir, "config.yml"), []byte(configContent), 0644); err != nil {
-		t.Fatalf("failed to create config.yml: %v", err)
-	}
-
-	result := readModuleVersion(tmpDir)
-	if result != "" {
-		t.Errorf("expected empty string, got '%s'", result)
-	}
-}
-
 // Tests for resolveTargetWithExample
 
 func TestResolveTargetWithExample_NoExample(t *testing.T) {

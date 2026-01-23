@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/TechnicallyJoe/sturdy-parakeet/internal/finder"
+	"github.com/TechnicallyJoe/sturdy-parakeet/internal/spacelift"
 	"github.com/spf13/cobra"
 )
 
@@ -111,8 +112,8 @@ func getModuleDetails(modulePath string) (*ModuleDetails, error) {
 	// Get list of test files
 	tests := listTestFiles(filepath.Join(modulePath, DirTests), basePath)
 
-	// Get Spacelift version using existing helper
-	spaceliftVersion := readModuleVersion(modulePath)
+	// Get Spacelift version
+	spaceliftVersion := spacelift.ReadModuleVersion(modulePath)
 
 	return &ModuleDetails{
 		Name:             name,
