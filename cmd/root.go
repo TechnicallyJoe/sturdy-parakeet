@@ -12,9 +12,8 @@ import (
 // version info set by ldflags at build time
 var (
 	version = "dev"
-	// commit and date are available for future use (set by ldflags at build time)
-	_ = "none"    // commit
-	_ = "unknown" // date
+	commit  = "none"
+	date    = "unknown"
 )
 
 var (
@@ -32,6 +31,11 @@ var (
 	searchFlag  string // Filter pattern for list command
 	exampleFlag string // Target a specific example instead of the module (init, fmt, validate)
 )
+
+// versionTemplate returns the version string with commit and date
+func versionTemplate() string {
+	return fmt.Sprintf("tfpl version %s\ncommit: %s\nbuilt:  %s\n", version, commit, date)
+}
 
 // rootCmd represents the base command
 var rootCmd = &cobra.Command{
@@ -68,6 +72,9 @@ in a polylith structure.`,
 }
 
 func init() {
+	// Set custom version template
+	rootCmd.SetVersionTemplate(versionTemplate())
+
 	// Add persistent flags
 	rootCmd.PersistentFlags().StringVar(&pathFlag, "path", "", "Explicit path (mutually exclusive with module name)")
 	rootCmd.PersistentFlags().StringArrayVarP(&argsFlag, "args", "a", []string{}, "Extra arguments to pass to terraform/tofu (can be specified multiple times)")
