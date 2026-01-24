@@ -401,4 +401,4 @@ chore(deps): update cobra to v1.9.0
 
 ## License
 
-[Add your license here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
