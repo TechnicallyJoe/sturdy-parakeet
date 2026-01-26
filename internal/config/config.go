@@ -141,9 +141,31 @@ func Load(startDir string, configPath string) (*Config, error) {
 	return cfg, nil
 }
 
-// loadConfigFile loads and validates a config file at the given path
+// loadConfigFile loads and validates a config file at the given path.
+// The configPath is validated to ensure it's a regular file before reading.
 func loadConfigFile(cfg *Config, configPath string, gitRoot string) (*Config, error) {
-	data, err := os.ReadFile(configPath) //nolint:gosec // configPath is user-provided
+	// Clean and validate the path
+	cleanPath := filepath.Clean(configPath)
+
+	// Resolve to absolute path if relative
+	if !filepath.IsAbs(cleanPath) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get working directory: %w", err)
+		}
+		cleanPath = filepath.Join(wd, cleanPath)
+	}
+
+	// Verify the file exists and is a regular file (not a directory or symlink)
+	info, err := os.Lstat(cleanPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to access config file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("config path is not a regular file: %s", cleanPath)
+	}
+
+	data, err := os.ReadFile(cleanPath) //nolint:gosec // path validated above
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
@@ -164,10 +186,10 @@ func loadConfigFile(cfg *Config, configPath string, gitRoot string) (*Config, er
 		cfg.Test.Engine = "terratest"
 	}
 
-	cfg.ConfigPath = configPath
+	cfg.ConfigPath = cleanPath
 
 	// Resolve Root relative to config file directory
-	dir := filepath.Dir(configPath)
+	dir := filepath.Dir(cleanPath)
 	if cfg.Root == "" {
 		cfg.Root = gitRoot
 	} else if !filepath.IsAbs(cfg.Root) {
