@@ -134,18 +134,6 @@ func printSchema(cmd *cobra.Command, schema *terraform.ModuleSchema) {
 }
 
 func printExample(cmd *cobra.Command, schema *terraform.ModuleSchema) {
-	// Only show example if there are required variables
-	hasRequired := false
-	for _, v := range schema.Variables {
-		if v.Required {
-			hasRequired = true
-			break
-		}
-	}
-	if !hasRequired {
-		return
-	}
-
 	cmd.Println("\nExample:")
 	cmd.Printf("  module \"%s\" {\n", schema.Name)
 	cmd.Printf("    source = \"%s\"\n", schema.Path)
@@ -158,11 +146,13 @@ func printExample(cmd *cobra.Command, schema *terraform.ModuleSchema) {
 		}
 	}
 
-	// Print required variables
-	cmd.Println()
-	for _, v := range schema.Variables {
-		if v.Required {
-			cmd.Printf("    %-*s = %s\n", maxLen, v.Name, v.EmptyValueForType())
+	// Print required variables (if any)
+	if maxLen > 0 {
+		cmd.Println()
+		for _, v := range schema.Variables {
+			if v.Required {
+				cmd.Printf("    %-*s = %s\n", maxLen, v.Name, v.EmptyValueForType())
+			}
 		}
 	}
 
