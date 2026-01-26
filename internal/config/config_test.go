@@ -472,3 +472,85 @@ func TestLoad_ExplicitConfigPath_NotFound(t *testing.T) {
 		t.Error("expected error for non-existent config file, got nil")
 	}
 }
+
+func TestLoad_ExplicitConfigPath_Directory(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Try to load a directory as config file
+	_, err := Load(tmpDir, tmpDir)
+	if err == nil {
+		t.Error("expected error when config path is a directory, got nil")
+	}
+}
+
+func TestLoad_ExplicitConfigPath_Symlink(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git directory
+	gitDir := filepath.Join(tmpDir, ".git")
+	if err := os.Mkdir(gitDir, 0755); err != nil {
+		t.Fatalf("failed to create .git directory: %v", err)
+	}
+
+	// Create a real config file
+	configContent := `binary: tofu
+`
+	realConfigPath := filepath.Join(tmpDir, "real-config.yml")
+	if err := os.WriteFile(realConfigPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to create config file: %v", err)
+	}
+
+	// Create a symlink to the config file
+	symlinkPath := filepath.Join(tmpDir, "symlink-config.yml")
+	if err := os.Symlink(realConfigPath, symlinkPath); err != nil {
+		t.Skipf("skipping symlink test: %v", err)
+	}
+
+	// Loading via symlink should fail (symlinks are not regular files)
+	_, err := Load(tmpDir, symlinkPath)
+	if err == nil {
+		t.Error("expected error when config path is a symlink, got nil")
+	}
+}
+
+func TestLoad_ExplicitConfigPath_RelativePath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git directory
+	gitDir := filepath.Join(tmpDir, ".git")
+	if err := os.Mkdir(gitDir, 0755); err != nil {
+		t.Fatalf("failed to create .git directory: %v", err)
+	}
+
+	// Create config file in tmpDir
+	configContent := `binary: tofu
+`
+	configPath := filepath.Join(tmpDir, "test-config.yml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to create config file: %v", err)
+	}
+
+	// Change to tmpDir and load with relative path
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current directory: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+
+	cfg, err := Load(tmpDir, "test-config.yml")
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+
+	if cfg.Binary != "tofu" {
+		t.Errorf("expected Binary to be 'tofu', got '%s'", cfg.Binary)
+	}
+	// ConfigPath should be absolute
+	if !filepath.IsAbs(cfg.ConfigPath) {
+		t.Errorf("expected ConfigPath to be absolute, got '%s'", cfg.ConfigPath)
+	}
+}
