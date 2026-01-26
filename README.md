@@ -2,6 +2,8 @@
 
 A command-line tool for working with polylith-style Terraform repositories. `tfpl` makes it easy to run terraform/tofu commands on components, bases, and projects organized in a polylith structure.
 
+![tfpl demo](assets/demo.gif)
+
 ## Features
 
 - **Simple commands**: Run `init`, `fmt`, `validate`, and `test` on components, bases, or projects
