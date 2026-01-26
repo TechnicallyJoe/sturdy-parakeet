@@ -57,7 +57,7 @@
 
 Output ../assets/demo.gif
 
-Require motf
+Require tfpl
 
 Set Theme "Catppuccin Mocha"
 Set FontSize 14
