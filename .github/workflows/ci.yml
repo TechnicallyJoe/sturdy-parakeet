@@ -69,7 +69,7 @@ jobs:
           tofu_version: latest
           tofu_wrapper: false
 
-      - name: Run tests with coverage
+      - name: Run all tests with coverage
         run: go test -race -coverprofile=coverage.out -covermode=atomic -timeout=10m ./...
 
       - name: Upload coverage to Codecov
