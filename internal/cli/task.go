@@ -26,12 +26,23 @@ Examples:
   motf task storage-account --list             # List available tasks
   motf task storage-account -t hello-world     # Run 'hello-world' task
   motf task storage-account --task lint        # Run 'lint' task
-  motf task --path ./modules/x -t docs         # Run task on explicit path`,
+  motf task --path ./modules/x -t docs         # Run task on explicit path
+  motf task -t lint --changed                  # Run 'lint' task on changed modules`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// If no task specified, list tasks
 		if taskFlag == "" || listTaskFlag {
 			return listTasks()
+		}
+
+		if changedFlag {
+			if len(args) > 0 {
+				return cobra.MaximumNArgs(0)(cmd, args)
+			}
+			return runOnChangedModules(func(moduleAbsPath string) error {
+				taskRunner := tasks.NewRunner(cfg.Tasks)
+				return taskRunner.Run(taskFlag, moduleAbsPath)
+			})
 		}
 
 		// Resolve module path
@@ -75,5 +86,7 @@ func listTasks() error {
 func init() {
 	taskCmd.Flags().StringVarP(&taskFlag, "task", "t", "", "Task name to run")
 	taskCmd.Flags().BoolVarP(&listTaskFlag, "list", "l", false, "List available tasks")
+	taskCmd.Flags().BoolVar(&changedFlag, "changed", false, "Run on modules changed compared to --ref")
+	taskCmd.Flags().StringVar(&refFlag, "ref", "", "Git ref for --changed (default: auto-detect from origin/HEAD)")
 	rootCmd.AddCommand(taskCmd)
 }
