@@ -1,0 +1,40 @@
+name: Terraform
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-fmt:
+    name: Terraform fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.8.5'
+
+      - name: Build motf
+        run: |
+          go build -o motf ./cmd/motf
+
+      - name: Run Terraform fmt check on changed modules
+        run: |
+          ./motf fmt --changed --args "--check"
+
+      - name: Run Terraform init and validate on changed modules
+        run: |
+          ./motf validate --init --changed
