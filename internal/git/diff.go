@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -24,7 +25,7 @@ func GetChangedFiles(repoRoot, base string) ([]string, error) {
 	if err != nil {
 		// If we can't get committed changes (e.g., base doesn't exist), continue with uncommitted only
 		// This allows the command to work even on initial commits
-		if !strings.Contains(err.Error(), "reference not found") {
+		if !errors.Is(err, plumbing.ErrReferenceNotFound) {
 			return nil, err
 		}
 	}
@@ -55,7 +56,7 @@ func getCommittedChanges(repo *git.Repository, base string) ([]string, error) {
 	// Resolve base reference
 	baseHash, err := repo.ResolveRevision(plumbing.Revision(base))
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve base ref '%s': %w", base, err)
+		return nil, plumbing.ErrReferenceNotFound
 	}
 
 	// Get HEAD
