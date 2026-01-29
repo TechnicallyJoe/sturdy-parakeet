@@ -34,8 +34,17 @@ var configCmd = &cobra.Command{
 
 		if len(cfg.Tasks) > 0 {
 			fmt.Println("\nTasks:")
+
+			// Determine the maximum task name length to align descriptions nicely.
+			nameWidth := 15
+			for name := range cfg.Tasks {
+				if l := len(name); l > nameWidth {
+					nameWidth = l
+				}
+			}
+
 			for name, task := range cfg.Tasks {
-				fmt.Printf(" - %-15s %s\n", name, valueOrDefault(task.Description, "(no description)"))
+				fmt.Printf(" - %-*s %s\n", nameWidth, name, valueOrDefault(task.Description, "(no description)"))
 			}
 		}
 
