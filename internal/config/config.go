@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/TechnicallyJoe/terraform-motf/internal/tasks"
 	"gopkg.in/yaml.v3"
@@ -15,13 +16,27 @@ type TestConfig struct {
 	Args   string `yaml:"args"`
 }
 
+type ParallelismConfig struct {
+	MaxJobs int `yaml:"max_jobs"`
+}
+
+// GetMaxJobs returns the maximum number of parallel jobs to run.
+// If MaxJobs is not set or is less than or equal to zero, it defaults to the number of CPU cores.
+func (p ParallelismConfig) GetMaxJobs() int {
+	if p.MaxJobs <= 0 {
+		return runtime.NumCPU()
+	}
+	return p.MaxJobs
+}
+
 // Config represents the .motf.yml configuration file
 type Config struct {
-	Root       string                       `yaml:"root"`
-	Binary     string                       `yaml:"binary"`
-	Test       *TestConfig                  `yaml:"test"`
-	Tasks      map[string]*tasks.TaskConfig `yaml:"tasks"`
-	ConfigPath string                       `yaml:"-"` // Path to the config file, if found
+	Root        string                       `yaml:"root"`
+	Binary      string                       `yaml:"binary"`
+	Test        *TestConfig                  `yaml:"test"`
+	Tasks       map[string]*tasks.TaskConfig `yaml:"tasks"`
+	Parallelism *ParallelismConfig           `yaml:"parallelism"`
+	ConfigPath  string                       `yaml:"-"` // Path to the config file, if found
 }
 
 // DefaultConfig returns a Config with default values
@@ -32,6 +47,9 @@ func DefaultConfig() *Config {
 		Test: &TestConfig{
 			Engine: "terratest",
 			Args:   "",
+		},
+		Parallelism: &ParallelismConfig{
+			MaxJobs: 0,
 		},
 	}
 }

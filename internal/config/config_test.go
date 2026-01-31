@@ -3,10 +3,46 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
-func TestLoad_WithConfigFileAndRootSet(t *testing.T) {
+func TestLoad_WithConfigFileWithoutValues(t *testing.T) {
+	// Create a temp directory structure with a git repo and config file
+	tmpDir := t.TempDir()
+
+	// Create .git directory to mark repo root
+	gitDir := filepath.Join(tmpDir, ".git")
+	if err := os.Mkdir(gitDir, 0755); err != nil {
+		t.Fatalf("failed to create .git directory: %v", err)
+	}
+
+	// Create .motf.yml without Root set
+	configContent := ""
+	configPath := filepath.Join(tmpDir, ".motf.yml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to create config file: %v", err)
+	}
+
+	cfg, err := Load(tmpDir, "")
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+
+	// Root should default to git root
+	if cfg.Root != tmpDir {
+		t.Errorf("expected Root to be '%s' (git root), got '%s'", tmpDir, cfg.Root)
+	}
+	if cfg.Binary != "terraform" {
+		t.Errorf("expected Binary to be 'terraform', got '%s'", cfg.Binary)
+	}
+	// Parallelism MaxJobs should be default
+	if cfg.Parallelism.GetMaxJobs() != runtime.NumCPU() {
+		t.Errorf("expected Parallelism.MaxJobs to be '%d' (number of CPU cores), got '%d'", runtime.NumCPU(), cfg.Parallelism.GetMaxJobs())
+	}
+}
+
+func TestLoad_WithConfigFileAndWithValues(t *testing.T) {
 	// Create a temp directory structure with a git repo and config file
 	tmpDir := t.TempDir()
 
@@ -19,6 +55,9 @@ func TestLoad_WithConfigFileAndRootSet(t *testing.T) {
 	// Create .motf.yml with Root set
 	configContent := `root: /custom/root/path
 binary: tofu
+
+parallelism:
+  max_jobs: 8
 `
 	configPath := filepath.Join(tmpDir, ".motf.yml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
@@ -36,37 +75,8 @@ binary: tofu
 	if cfg.Binary != "tofu" {
 		t.Errorf("expected Binary to be 'tofu', got '%s'", cfg.Binary)
 	}
-}
-
-func TestLoad_WithConfigFileWithoutRoot(t *testing.T) {
-	// Create a temp directory structure with a git repo and config file
-	tmpDir := t.TempDir()
-
-	// Create .git directory to mark repo root
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("failed to create .git directory: %v", err)
-	}
-
-	// Create .motf.yml without Root set
-	configContent := `binary: tofu
-`
-	configPath := filepath.Join(tmpDir, ".motf.yml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("failed to create config file: %v", err)
-	}
-
-	cfg, err := Load(tmpDir, "")
-	if err != nil {
-		t.Fatalf("Load() returned error: %v", err)
-	}
-
-	// Root should default to git root
-	if cfg.Root != tmpDir {
-		t.Errorf("expected Root to be '%s' (git root), got '%s'", tmpDir, cfg.Root)
-	}
-	if cfg.Binary != "tofu" {
-		t.Errorf("expected Binary to be 'tofu', got '%s'", cfg.Binary)
+	if cfg.Parallelism.GetMaxJobs() != 8 {
+		t.Errorf("expected Parallelism.MaxJobs to be '8', got '%d'", cfg.Parallelism.GetMaxJobs())
 	}
 }
 
@@ -92,6 +102,10 @@ func TestLoad_NoConfigFile(t *testing.T) {
 	// Binary should be default
 	if cfg.Binary != "terraform" {
 		t.Errorf("expected Binary to be 'terraform', got '%s'", cfg.Binary)
+	}
+	// Parallelism MaxJobs should be default
+	if cfg.Parallelism.GetMaxJobs() != runtime.NumCPU() {
+		t.Errorf("expected Parallelism.MaxJobs to be '%d' (number of CPU cores), got '%d'", runtime.NumCPU(), cfg.Parallelism.GetMaxJobs())
 	}
 }
 
