@@ -69,13 +69,21 @@ func newPrefixedWriter(moduleName string, maxNameLen int, colorIndex int, out io
 // Write implements io.Writer. It buffers input and writes complete lines
 // with the prefix prepended.
 func (w *prefixedWriter) Write(p []byte) (n int, err error) {
-	w.buf.Write(p)
+	written, err := w.buf.Write(p)
+	if err != nil {
+		return written, fmt.Errorf("failed to buffer output: %w", err)
+	}
 
 	for {
-		line, err := w.buf.ReadBytes('\n')
-		if err != nil {
+		line, readErr := w.buf.ReadBytes('\n')
+		if readErr != nil {
 			// No complete line yet, put it back
-			w.buf.Write(line)
+			if _, writeBackErr := w.buf.Write(line); writeBackErr != nil {
+				return written, fmt.Errorf("failed to re-buffer partial line: %w", writeBackErr)
+			}
+			    if err != nil {
+        return written, fmt.Errorf("failed to buffer output: %w", err)
+    }
 			break
 		}
 		// Write the complete line with prefix
