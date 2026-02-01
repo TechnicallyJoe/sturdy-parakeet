@@ -103,6 +103,10 @@ func (r *Runner) RunTestWithOutput(dir string, stdout, stderr io.Writer, extraAr
 	var cmd *exec.Cmd
 	var cmdArgs []string
 
+	if !config.ValidTestEngines[r.config.Test.Engine] {
+		return fmt.Errorf("unsupported test engine '%s': must be one of: terratest, terraform, tofu", r.config.Test.Engine)
+	}
+
 	switch r.config.Test.Engine {
 	case "terratest":
 		// Terratest uses Go test
@@ -135,8 +139,6 @@ func (r *Runner) RunTestWithOutput(dir string, stdout, stderr io.Writer, extraAr
 		binary := r.config.Test.Engine
 		cmd = exec.Command(binary, cmdArgs...) //nolint:gosec // binary is validated to be terraform or tofu
 		_, _ = fmt.Fprintf(stdout, "Running %s %s in %s\n", binary, strings.Join(cmdArgs, " "), dir)
-	default:
-		return fmt.Errorf("unsupported test engine: %s", r.config.Test.Engine)
 	}
 
 	cmd.Dir = dir
