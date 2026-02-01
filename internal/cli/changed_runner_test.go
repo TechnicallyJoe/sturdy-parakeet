@@ -1,43 +1,12 @@
 package cli
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/TechnicallyJoe/terraform-motf/internal/config"
 )
-
-func TestChangedCmd_HasFlags(t *testing.T) {
-	// Test --ref flag
-	ref := changedCmd.Flags().Lookup("ref")
-	if ref == nil {
-		t.Fatal("changedCmd should have --ref flag")
-	}
-
-	// Test --json flag
-	jsonFlag := changedCmd.Flags().Lookup("json")
-	if jsonFlag == nil {
-		t.Fatal("changedCmd should have --json flag")
-	}
-
-	// Test --names flag
-	namesFlag := changedCmd.Flags().Lookup("names")
-	if namesFlag == nil {
-		t.Fatal("changedCmd should have --names flag")
-	}
-}
-
-func TestChangedCmd_ShortDescription(t *testing.T) {
-	if changedCmd.Short == "" {
-		t.Error("changedCmd should have a short description")
-	}
-	if changedCmd.Long == "" {
-		t.Error("changedCmd should have a long description")
-	}
-}
 
 func TestFindParentModule(t *testing.T) {
 	// Create a temp directory structure
@@ -159,75 +128,5 @@ func TestResolveChangedModules(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestOutputChangedModules_EmptyJSON(t *testing.T) {
-	// Capture output
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	changedJsonFlag = true
-	changedNamesOnlyFlag = false
-	defer func() {
-		changedJsonFlag = false
-	}()
-
-	err := outputChangedModules(nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	_ = w.Close()
-	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
-	output := strings.TrimSpace(buf.String())
-
-	if output != "[]" {
-		t.Errorf("expected '[]', got '%s'", output)
-	}
-}
-
-func TestOutputChangedModules_NamesOnly(t *testing.T) {
-	// Capture output
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	changedJsonFlag = false
-	changedNamesOnlyFlag = true
-	defer func() {
-		changedNamesOnlyFlag = false
-	}()
-
-	modules := []ModuleInfo{
-		{Name: "storage-account", Type: "component", Path: "components/azurerm/storage-account"},
-		{Name: "key-vault", Type: "component", Path: "components/azurerm/key-vault"},
-	}
-
-	err := outputChangedModules(modules)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	_ = w.Close()
-	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
-	output := strings.TrimSpace(buf.String())
-	lines := strings.Split(output, "\n")
-
-	if len(lines) != 2 {
-		t.Errorf("expected 2 lines, got %d: %v", len(lines), lines)
-	}
-	if lines[0] != "storage-account" {
-		t.Errorf("expected 'storage-account', got '%s'", lines[0])
-	}
-	if lines[1] != "key-vault" {
-		t.Errorf("expected 'key-vault', got '%s'", lines[1])
 	}
 }

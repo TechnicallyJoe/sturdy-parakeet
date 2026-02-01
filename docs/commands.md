@@ -269,6 +269,9 @@ motf list [flags]
 |------|-------|-------------|
 | `--search` | `-s` | Filter modules (supports wildcards '*') |
 | `--json` | | Output in JSON format |
+| `--names` | | Output only module names (one per line, useful for scripting) |
+| `--changed` | | List only modules changed compared to `--ref` |
+| `--ref` | | Git ref to compare against (default: auto-detect from `origin/HEAD`) |
 
 ### Examples
 
@@ -286,6 +289,21 @@ motf list --json
 
 # Combine search and JSON
 motf list -s *storage* --json
+
+# List only changed modules
+motf list --changed
+
+# List changed modules compared to specific branch
+motf list --changed --ref origin/main
+
+# List changed modules compared to previous commits
+motf list --changed --ref HEAD~3
+
+# Output changed module names only (for scripting)
+motf list --changed --names
+
+# Combine changed with search filter
+motf list --changed -s storage*
 ```
 
 ### Output
@@ -297,6 +315,21 @@ key-vault        component  components/azurerm/key-vault
 resource-group   component  components/azurerm/resource-group
 k8s-argocd       base       bases/k8s-argocd
 prod-infra       project    projects/prod-infra
+```
+
+### Scripting with --names
+
+```bash
+# Loop through changed modules
+for module in $(motf list --changed --names); do
+  motf validate -i "$module"
+done
+
+# Using xargs
+motf list --changed --names | xargs -I {} motf fmt {}
+
+# Or use the built-in --changed flag on commands
+motf fmt --changed
 ```
 
 ---
@@ -405,77 +438,6 @@ Outputs:
   NAME        DESCRIPTION
   id          The ID of the storage account
   primary_key The primary access key
-```
-
----
-
-## changed
-
-List modules that have changed compared to a git ref.
-
-```bash
-motf changed [flags]
-```
-
-Detects both committed and uncommitted changes. Useful for CI pipelines to run commands only on affected modules.
-
-### Flags
-
-| Flag | Description |
-|------|-------------|
-| `--ref` | Git ref to compare against (default: auto-detect from `origin/HEAD`) |
-| `--json` | Output in JSON format |
-| `--names` | Output only module names, one per line |
-
-### Git Ref Examples
-
-| Ref | Description |
-|-----|-------------|
-| `origin/main` | Compare against main branch |
-| `origin/develop` | Compare against develop branch |
-| `HEAD~5` | Compare against 5 commits ago |
-| `v1.0.0` | Compare against a tag |
-
-### Examples
-
-```bash
-# Compare against auto-detected default branch
-motf changed
-
-# Compare against specific branch
-motf changed --ref origin/main
-
-# Compare against previous commits
-motf changed --ref HEAD~3
-
-# Output as JSON
-motf changed --json
-
-# Output only names (useful for scripting)
-motf changed --names
-```
-
-### Output
-
-```
-NAME             TYPE       PATH
-storage-account  component  components/azurerm/storage-account
-resource-group   component  components/azurerm/resource-group
-```
-
-### Scripting with --names
-
-```bash
-# Loop through changed modules
-for module in $(motf changed --names); do
-  motf validate -i "$module"
-done
-
-# Using xargs
-motf changed --names | xargs -I {} motf fmt {}
-
-# Using built-in helper
-motf fmt --changed
 ```
 
 ---

@@ -92,7 +92,7 @@ motf fmt storage-account
 motf val -i storage-account
 
 # See what changed
-motf changed
+motf list --changed
 ```
 
 ## Documentation
@@ -124,7 +124,7 @@ motf --help
 
 # Command-specific help
 motf fmt --help
-motf changed --help
+motf list --help
 
 # Show version
 motf --version

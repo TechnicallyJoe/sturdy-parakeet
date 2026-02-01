@@ -8,6 +8,41 @@ import (
 	"github.com/TechnicallyJoe/terraform-motf/internal/config"
 )
 
+func TestListCmd_HasFlags(t *testing.T) {
+	// Test --search flag
+	search := listCmd.Flags().Lookup("search")
+	if search == nil {
+		t.Fatal("listCmd should have --search flag")
+	}
+	if search.Shorthand != "s" {
+		t.Errorf("--search should have shorthand 's', got '%s'", search.Shorthand)
+	}
+
+	// Test --json flag
+	jsonFlag := listCmd.Flags().Lookup("json")
+	if jsonFlag == nil {
+		t.Fatal("listCmd should have --json flag")
+	}
+
+	// Test --names flag
+	namesFlag := listCmd.Flags().Lookup("names")
+	if namesFlag == nil {
+		t.Fatal("listCmd should have --names flag")
+	}
+
+	// Test --changed flag
+	changed := listCmd.Flags().Lookup("changed")
+	if changed == nil {
+		t.Fatal("listCmd should have --changed flag")
+	}
+
+	// Test --ref flag
+	ref := listCmd.Flags().Lookup("ref")
+	if ref == nil {
+		t.Fatal("listCmd should have --ref flag")
+	}
+}
+
 func TestCollectModules_AllTypes(t *testing.T) {
 	tmpDir := t.TempDir()
 

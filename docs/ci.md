@@ -144,7 +144,7 @@ jobs:
 - name: Check for changes
   id: changes
   run: |
-    count=$(motf changed --names | wc -l)
+    count=$(motf list --changed --names | wc -l)
     echo "count=$count" >> $GITHUB_OUTPUT
 
 - name: Validate

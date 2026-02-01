@@ -471,16 +471,16 @@ func TestE2E_DescribeCommand_JSON(t *testing.T) {
 	}
 }
 
-func TestE2E_ChangedCommand(t *testing.T) {
+func TestE2E_ListChangedCommand(t *testing.T) {
 	motfBinary := buildMotf(t)
 	tmpDir := setupCleanGitRepo(t)
 
-	// Run changed with ref HEAD (no commits to compare, no uncommitted changes)
-	cmd := exec.Command(motfBinary, "changed", "--ref", "HEAD")
+	// Run list --changed with ref HEAD (no commits to compare, no uncommitted changes)
+	cmd := exec.Command(motfBinary, "list", "--changed", "--ref", "HEAD")
 	cmd.Dir = tmpDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("motf changed failed: %v\nOutput: %s", err, output)
+		t.Fatalf("motf list --changed failed: %v\nOutput: %s", err, output)
 	}
 
 	// Should output "No changed modules found" in a clean repo
@@ -489,22 +489,22 @@ func TestE2E_ChangedCommand(t *testing.T) {
 	}
 }
 
-func TestE2E_ChangedCommand_JSON(t *testing.T) {
+func TestE2E_ListChangedCommand_JSON(t *testing.T) {
 	motfBinary := buildMotf(t)
 	tmpDir := setupCleanGitRepo(t)
 
-	// Run changed with --json flag
-	cmd := exec.Command(motfBinary, "changed", "--ref", "HEAD", "--json")
+	// Run list --changed with --json flag
+	cmd := exec.Command(motfBinary, "list", "--changed", "--ref", "HEAD", "--json")
 	cmd.Dir = tmpDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("motf changed --json failed: %v\nOutput: %s", err, output)
+		t.Fatalf("motf list --changed --json failed: %v\nOutput: %s", err, output)
 	}
 
 	// Should be valid JSON (empty array)
 	var result []interface{}
 	if err := json.Unmarshal(output, &result); err != nil {
-		t.Fatalf("changed --json output is not valid JSON: %v\nOutput: %s", err, output)
+		t.Fatalf("list --changed --json output is not valid JSON: %v\nOutput: %s", err, output)
 	}
 
 	// Should be empty in a clean repo
@@ -513,16 +513,16 @@ func TestE2E_ChangedCommand_JSON(t *testing.T) {
 	}
 }
 
-func TestE2E_ChangedCommand_Names(t *testing.T) {
+func TestE2E_ListChangedCommand_Names(t *testing.T) {
 	motfBinary := buildMotf(t)
 	tmpDir := setupCleanGitRepo(t)
 
-	// Run changed with --names flag
-	cmd := exec.Command(motfBinary, "changed", "--ref", "HEAD", "--names")
+	// Run list --changed with --names flag
+	cmd := exec.Command(motfBinary, "list", "--changed", "--ref", "HEAD", "--names")
 	cmd.Dir = tmpDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("motf changed --names failed: %v\nOutput: %s", err, output)
+		t.Fatalf("motf list --changed --names failed: %v\nOutput: %s", err, output)
 	}
 
 	// Should be empty (no output) in a clean repo
@@ -547,23 +547,49 @@ func TestE2E_FmtChanged_NoOp(t *testing.T) {
 	}
 }
 
-func TestE2E_ChangedCommand_DetectsUncommitted(t *testing.T) {
+func TestE2E_ListChangedCommand_DetectsUncommitted(t *testing.T) {
 	motfBinary := buildMotf(t)
 	tmpDir := setupCleanGitRepo(t)
 
 	// Create an uncommitted change in the module
 	addUncommittedFile(t, tmpDir, []string{"test-module"}, "outputs.tf", "output \"test\" { value = \"changed\" }\n")
 
-	// Run changed - should detect the uncommitted file
-	cmd := exec.Command(motfBinary, "changed", "--ref", "HEAD", "--names")
+	// Run list --changed - should detect the uncommitted file
+	cmd := exec.Command(motfBinary, "list", "--changed", "--ref", "HEAD", "--names")
 	cmd.Dir = tmpDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("motf changed failed: %v\nOutput: %s", err, output)
+		t.Fatalf("motf list --changed failed: %v\nOutput: %s", err, output)
 	}
 
 	if !strings.Contains(string(output), "test-module") {
 		t.Errorf("expected to detect uncommitted change in test-module, got: %s", output)
+	}
+}
+
+func TestE2E_ListChangedCommand_WithSearch(t *testing.T) {
+	motfBinary := buildMotf(t)
+	// Create repo with multiple modules already committed
+	tmpDir := setupGitRepoWithModules(t, []string{"storage-module", "network-module"})
+
+	// Create uncommitted changes in both modules
+	addUncommittedFile(t, tmpDir, []string{"storage-module"}, "outputs.tf", "output \"test\" { value = \"changed\" }\n")
+	addUncommittedFile(t, tmpDir, []string{"network-module"}, "outputs.tf", "output \"test\" { value = \"changed\" }\n")
+
+	// Run list --changed with --search to filter
+	cmd := exec.Command(motfBinary, "list", "--changed", "--ref", "HEAD", "--names", "-s", "storage*")
+	cmd.Dir = tmpDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("motf list --changed -s failed: %v\nOutput: %s", err, output)
+	}
+
+	// Should only show storage-module
+	if !strings.Contains(string(output), "storage-module") {
+		t.Errorf("expected storage-module in output, got: %s", output)
+	}
+	if strings.Contains(string(output), "network-module") {
+		t.Errorf("expected network-module to be filtered out, got: %s", output)
 	}
 }
 

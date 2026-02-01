@@ -15,6 +15,9 @@ import (
 // listJsonFlag controls JSON output for list command
 var listJsonFlag bool
 
+// listNamesOnlyFlag outputs only module names (not paths)
+var listNamesOnlyFlag bool
+
 // listCmd represents the list command
 var listCmd = &cobra.Command{
 	Use:   "list",
@@ -22,19 +25,27 @@ var listCmd = &cobra.Command{
 	Long: `List all modules found in components, bases, and projects directories.
 
 Use the --search/-s flag to filter modules using wildcards.
+Use the --changed flag to show only modules with changes compared to a git ref.
 Use the --json flag to output in JSON format for scripting.
 
 Examples:
-  motf list                    # List all modules
-  motf list -s storage         # List modules containing "storage"
-  motf list -s *account*       # List modules with "account" anywhere in the name
-  motf list --json             # Output as JSON`,
+  motf list                        # List all modules
+  motf list -s storage             # List modules containing "storage"
+  motf list -s *account*           # List modules with "account" anywhere in the name
+  motf list --json                 # Output as JSON
+  motf list --changed              # List only changed modules
+  motf list --changed --ref HEAD~5 # List modules changed in last 5 commits
+  motf list --changed --names      # Output only changed module names (for scripting)
+  motf list --changed -s storage   # List changed modules matching "storage"`,
 	RunE: runList,
 }
 
 func init() {
 	listCmd.Flags().StringVarP(&searchFlag, "search", "s", "", "Filter modules using wildcards (e.g., *storage*)")
 	listCmd.Flags().BoolVar(&listJsonFlag, "json", false, "Output in JSON format")
+	listCmd.Flags().BoolVar(&listNamesOnlyFlag, "names", false, "Output only module names (one per line)")
+	listCmd.Flags().BoolVar(&changedFlag, "changed", false, "List only modules changed compared to --ref")
+	listCmd.Flags().StringVar(&refFlag, "ref", "", "Git ref for --changed (default: auto-detect from origin/HEAD)")
 	rootCmd.AddCommand(listCmd)
 }
 
@@ -44,9 +55,36 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	modules, err := collectModules(basePath, searchFlag)
-	if err != nil {
-		return err
+	var modules []ModuleInfo
+
+	if changedFlag {
+		// Get changed modules
+		modules, err = detectChangedModules(refFlag)
+		if err != nil {
+			return err
+		}
+
+		// Apply search filter if specified
+		if searchFlag != "" && len(modules) > 0 {
+			var filtered []ModuleInfo
+			for _, mod := range modules {
+				if finder.MatchesWildcard(mod.Name, searchFlag) {
+					filtered = append(filtered, mod)
+				}
+			}
+			modules = filtered
+		}
+
+		// Add version info (detectChangedModules doesn't include it)
+		for i := range modules {
+			absPath := filepath.Join(basePath, modules[i].Path)
+			modules[i].Version = spacelift.ReadModuleVersion(absPath)
+		}
+	} else {
+		modules, err = collectModules(basePath, searchFlag)
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(modules) == 0 {
@@ -54,7 +92,12 @@ func runList(cmd *cobra.Command, args []string) error {
 			fmt.Println("[]")
 			return nil
 		}
-		if searchFlag != "" {
+		if listNamesOnlyFlag {
+			return nil
+		}
+		if changedFlag {
+			fmt.Println("No changed modules found")
+		} else if searchFlag != "" {
 			fmt.Printf("No modules found matching '%s'\n", searchFlag)
 		} else {
 			fmt.Println("No modules found")
@@ -66,6 +109,13 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	if listJsonFlag {
 		return printModulesJSON(modules)
+	}
+
+	if listNamesOnlyFlag {
+		for _, mod := range modules {
+			fmt.Println(mod.Name)
+		}
+		return nil
 	}
 
 	printModules(modules)
