@@ -5,6 +5,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/TechnicallyJoe/terraform-motf/internal/git"
 	"github.com/TechnicallyJoe/terraform-motf/internal/tasks"
 	"github.com/spf13/cobra"
 )
@@ -38,6 +39,9 @@ Examples:
 			return listTasks()
 		}
 
+		// Get git root (soft fail - empty string if not in git repo)
+		gitRoot, _ := git.GetRepoRoot()
+
 		if changedFlag {
 			if exampleFlag != "" {
 				return fmt.Errorf("--changed cannot be used with --example")
@@ -46,7 +50,14 @@ Examples:
 				return cobra.MaximumNArgs(0)(cmd, args)
 			}
 			return runOnChangedModulesWithPath(func(moduleAbsPath string, stdout, stderr io.Writer) error {
-				taskRunner := tasks.NewRunner(cfg.Tasks)
+				env := tasks.NewEnvBuilder().
+					WithGitRoot(gitRoot).
+					WithModulePath(moduleAbsPath).
+					WithModuleName(tasks.ModuleNameFromPath(moduleAbsPath)).
+					WithConfigPath(cfg.ConfigPath).
+					WithBinary(cfg.Binary).
+					Build()
+				taskRunner := tasks.NewRunner(cfg.Tasks, env)
 				return taskRunner.RunWithOutput(taskFlag, moduleAbsPath, stdout, stderr)
 			})
 		}
@@ -57,8 +68,17 @@ Examples:
 			return err
 		}
 
+		// Build environment with built-in variables
+		env := tasks.NewEnvBuilder().
+			WithGitRoot(gitRoot).
+			WithModulePath(targetPath).
+			WithModuleName(tasks.ModuleNameFromPath(targetPath)).
+			WithConfigPath(cfg.ConfigPath).
+			WithBinary(cfg.Binary).
+			Build()
+
 		// Run the task
-		taskRunner := tasks.NewRunner(cfg.Tasks)
+		taskRunner := tasks.NewRunner(cfg.Tasks, env)
 		return taskRunner.Run(taskFlag, targetPath)
 	},
 }
