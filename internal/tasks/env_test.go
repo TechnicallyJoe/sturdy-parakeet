@@ -1,7 +1,6 @@
 package tasks
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
@@ -78,8 +77,7 @@ func TestEnvBuilder_Chaining(t *testing.T) {
 
 func TestEnvBuilder_Build_IncludesParentEnv(t *testing.T) {
 	// Set a test env var
-	os.Setenv("MOTF_TEST_VAR", "test_value")
-	defer os.Unsetenv("MOTF_TEST_VAR")
+	t.Setenv("MOTF_TEST_VAR", "test_value")
 
 	env := NewEnvBuilder().Build()
 
