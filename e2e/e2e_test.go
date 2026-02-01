@@ -1095,6 +1095,100 @@ tasks:
 	}
 }
 
+// TestE2E_TaskBuiltInVariables tests that built-in MOTF_* environment variables are available in tasks
+func TestE2E_TaskBuiltInVariables(t *testing.T) {
+	motfBinary := buildMotf(t)
+	tmpDir := setupCleanGitRepo(t)
+
+	// Create .motf.yml with a task that echoes built-in variables
+	configContent := `binary: terraform
+tasks:
+  show-env:
+    description: "Show built-in environment variables"
+    shell: sh
+    command: |
+      echo "GIT_ROOT=$MOTF_GIT_ROOT"
+      echo "MODULE_PATH=$MOTF_MODULE_PATH"
+      echo "MODULE_NAME=$MOTF_MODULE_NAME"
+      echo "CONFIG_PATH=$MOTF_CONFIG_PATH"
+      echo "BINARY=$MOTF_BINARY"
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, ".motf.yml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	// Run the task
+	cmd := exec.Command(motfBinary, "task", "test-module", "-t", "show-env")
+	cmd.Dir = tmpDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("motf task failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+
+	// Verify MOTF_GIT_ROOT is set to the temp directory (git root)
+	if !strings.Contains(outputStr, "GIT_ROOT="+tmpDir) {
+		t.Errorf("expected MOTF_GIT_ROOT=%s in output, got: %s", tmpDir, outputStr)
+	}
+
+	// Verify MOTF_MODULE_PATH contains the module path
+	expectedModulePath := filepath.Join(tmpDir, "components", "test-module")
+	if !strings.Contains(outputStr, "MODULE_PATH="+expectedModulePath) {
+		t.Errorf("expected MOTF_MODULE_PATH=%s in output, got: %s", expectedModulePath, outputStr)
+	}
+
+	// Verify MOTF_MODULE_NAME is set correctly
+	if !strings.Contains(outputStr, "MODULE_NAME=test-module") {
+		t.Errorf("expected MOTF_MODULE_NAME=test-module in output, got: %s", outputStr)
+	}
+
+	// Verify MOTF_CONFIG_PATH is set
+	expectedConfigPath := filepath.Join(tmpDir, ".motf.yml")
+	if !strings.Contains(outputStr, "CONFIG_PATH="+expectedConfigPath) {
+		t.Errorf("expected MOTF_CONFIG_PATH=%s in output, got: %s", expectedConfigPath, outputStr)
+	}
+
+	// Verify MOTF_BINARY is set
+	if !strings.Contains(outputStr, "BINARY=terraform") {
+		t.Errorf("expected MOTF_BINARY=terraform in output, got: %s", outputStr)
+	}
+}
+
+// TestE2E_TaskBuiltInVariables_NoGitRepo tests that MOTF_GIT_ROOT is empty when not in a git repo
+func TestE2E_TaskBuiltInVariables_NoGitRepo(t *testing.T) {
+	motfBinary := buildMotf(t)
+	tmpDir := t.TempDir() // Not a git repo
+
+	// Create a component module
+	createModules(t, tmpDir, []string{"test-component"})
+
+	// Create .motf.yml with a task that echoes MOTF_GIT_ROOT
+	configContent := `binary: terraform
+tasks:
+  show-git-root:
+    shell: sh
+    command: echo "GIT_ROOT=[$MOTF_GIT_ROOT]"
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, ".motf.yml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	// Run the task
+	cmd := exec.Command(motfBinary, "task", "test-component", "-t", "show-git-root")
+	cmd.Dir = tmpDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("motf task failed: %v\nOutput: %s", err, output)
+	}
+
+	outputStr := string(output)
+	// MOTF_GIT_ROOT should be empty (soft fail)
+	if !strings.Contains(outputStr, "GIT_ROOT=[]") {
+		t.Errorf("expected MOTF_GIT_ROOT to be empty when not in git repo, got: %s", outputStr)
+	}
+}
+
 // TestE2E_ParallelFlag tests the --parallel flag with --changed
 func TestE2E_ParallelFlag(t *testing.T) {
 	motfBinary := buildMotf(t)

@@ -113,7 +113,7 @@ func TestSupportedShells(t *testing.T) {
 
 func TestNewRunner(t *testing.T) {
 	t.Run("with nil tasks", func(t *testing.T) {
-		r := NewRunner(nil)
+		r := NewRunner(nil, nil)
 		if r.Tasks == nil {
 			t.Error("Tasks should be initialized to empty map, not nil")
 		}
@@ -123,9 +123,17 @@ func TestNewRunner(t *testing.T) {
 		tasks := map[string]*TaskConfig{
 			"test": {Command: "echo test"},
 		}
-		r := NewRunner(tasks)
+		r := NewRunner(tasks, nil)
 		if r.Tasks["test"] == nil {
 			t.Error("Tasks should contain the provided tasks")
+		}
+	})
+
+	t.Run("with env", func(t *testing.T) {
+		env := []string{"MOTF_GIT_ROOT=/repo"}
+		r := NewRunner(nil, env)
+		if len(r.Env) != 1 || r.Env[0] != "MOTF_GIT_ROOT=/repo" {
+			t.Errorf("Env should contain the provided env, got %v", r.Env)
 		}
 	})
 }
@@ -134,7 +142,7 @@ func TestRunner_GetTask(t *testing.T) {
 	tasks := map[string]*TaskConfig{
 		"hello": {Description: "Say hello", Command: "echo hello"},
 	}
-	r := NewRunner(tasks)
+	r := NewRunner(tasks, nil)
 
 	t.Run("existing task", func(t *testing.T) {
 		task := r.GetTask("hello")
@@ -159,7 +167,7 @@ func TestRunner_ListTasks(t *testing.T) {
 		"a": {Command: "echo a"},
 		"b": {Command: "echo b"},
 	}
-	r := NewRunner(tasks)
+	r := NewRunner(tasks, nil)
 
 	names := r.ListTasks()
 	if len(names) != 2 {
@@ -183,7 +191,7 @@ func TestRunner_ListTasks(t *testing.T) {
 
 func TestRunner_Run_Errors(t *testing.T) {
 	t.Run("task not found", func(t *testing.T) {
-		r := NewRunner(nil)
+		r := NewRunner(nil, nil)
 		err := r.Run("nonexistent", "/tmp")
 		if err == nil {
 			t.Error("expected error for non-existing task")
@@ -193,7 +201,7 @@ func TestRunner_Run_Errors(t *testing.T) {
 	t.Run("empty command", func(t *testing.T) {
 		r := NewRunner(map[string]*TaskConfig{
 			"empty": {Description: "No command"},
-		})
+		}, nil)
 		err := r.Run("empty", "/tmp")
 		if err == nil {
 			t.Error("expected error for empty command")
@@ -203,7 +211,7 @@ func TestRunner_Run_Errors(t *testing.T) {
 	t.Run("invalid shell", func(t *testing.T) {
 		r := NewRunner(map[string]*TaskConfig{
 			"bad": {Shell: "zsh", Command: "echo test"},
-		})
+		}, nil)
 		err := r.Run("bad", "/tmp")
 		if err == nil {
 			t.Error("expected error for invalid shell")

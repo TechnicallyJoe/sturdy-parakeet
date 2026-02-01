@@ -56,14 +56,15 @@ func GetShellArgs(shell, script string) (binary string, args []string, err error
 // Runner executes custom tasks
 type Runner struct {
 	Tasks map[string]*TaskConfig
+	Env   []string // Environment variables for task execution (includes MOTF_* built-ins)
 }
 
 // NewRunner creates a new task runner with the given task definitions
-func NewRunner(tasks map[string]*TaskConfig) *Runner {
+func NewRunner(tasks map[string]*TaskConfig, env []string) *Runner {
 	if tasks == nil {
 		tasks = make(map[string]*TaskConfig)
 	}
-	return &Runner{Tasks: tasks}
+	return &Runner{Tasks: tasks, Env: env}
 }
 
 // GetTask returns the task config for the given name, or nil if not found
@@ -108,6 +109,11 @@ func (r *Runner) RunWithOutput(taskName, workDir string, stdout, stderr io.Write
 	cmd.Dir = workDir
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
+
+	// Set environment if provided (includes MOTF_* built-in variables)
+	if len(r.Env) > 0 {
+		cmd.Env = r.Env
+	}
 
 	return cmd.Run()
 }
