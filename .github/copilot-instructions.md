@@ -10,7 +10,7 @@
 cmd/
   motf/        → Main entrypoint (imports internal/cli)
 internal/
-  cli/         → Cobra CLI commands (root.go, init.go, fmt.go, validate.go, test.go, plan.go, list.go, get.go, describe.go, changed.go, task.go)
+  cli/         → Cobra CLI commands (root.go, init.go, fmt.go, validate.go, test.go, plan.go, list.go, get.go, describe.go, task.go)
   config/      → .motf.yml configuration loading and validation
   finder/      → Module discovery via recursive directory walking
   git/         → Git operations for change detection (uses go-git library)
@@ -187,8 +187,7 @@ demo/
 | [internal/cli/root.go](internal/cli/root.go) | CLI root, global flags, config loading |
 | [internal/cli/helpers.go](internal/cli/helpers.go) | `resolveTargetPath()`, module type detection |
 | [internal/cli/types.go](internal/cli/types.go) | Constants for module dirs/types, `ModuleInfo` struct |
-| [internal/cli/changed.go](internal/cli/changed.go) | `motf changed` command implementation |
-| [internal/cli/changed_runner.go](internal/cli/changed_runner.go) | Helper for `--changed` flag on commands |
+| [internal/cli/changed_runner.go](internal/cli/changed_runner.go) | Change detection logic and `--changed` flag helper |
 | [internal/finder/finder.go](internal/finder/finder.go) | `FindModule()`, `ListAllModules()` |
 | [internal/git/diff.go](internal/git/diff.go) | Git change detection with go-git library |
 | [internal/tasks/tasks.go](internal/tasks/tasks.go) | Custom task loading from `.motf.yml` |
