@@ -10,6 +10,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ValidBinaries contains allowed terraform/tofu binary values
+var ValidBinaries = map[string]bool{
+	"terraform": true,
+	"tofu":      true,
+}
+
+// ValidTestEngines contains allowed test engine values
+var ValidTestEngines = map[string]bool{
+	"terratest": true,
+	"terraform": true,
+	"tofu":      true,
+}
+
 // TestConfig represents the test configuration section
 type TestConfig struct {
 	Engine string `yaml:"engine"`
@@ -110,20 +123,20 @@ func Load(startDir string, configPath string) (*Config, error) {
 			}
 
 			// Validate binary
-			if cfg.Binary != "terraform" && cfg.Binary != "tofu" {
+			if !ValidBinaries[cfg.Binary] {
 				return nil, fmt.Errorf("invalid binary '%s' in config: must be 'terraform' or 'tofu'", cfg.Binary)
 			}
 
-			// Ensure Test config has defaults if not set
+			// Ensure Test config has defaults if not set (YAML can override to nil)
 			if cfg.Test == nil {
-				cfg.Test = &TestConfig{
-					Engine: "terratest",
-					Args:   "",
-				}
-			} else {
-				if cfg.Test.Engine == "" {
-					cfg.Test.Engine = "terratest"
-				}
+				cfg.Test = &TestConfig{Engine: "terratest", Args: ""}
+			} else if cfg.Test.Engine == "" {
+				cfg.Test.Engine = "terratest"
+			}
+
+			// Validate test engine
+			if !ValidTestEngines[cfg.Test.Engine] {
+				return nil, fmt.Errorf("invalid test engine '%s' in config: must be 'terratest', 'terraform', or 'tofu'", cfg.Test.Engine)
 			}
 
 			// Store the config file path
@@ -197,7 +210,7 @@ func loadConfigFile(cfg *Config, configPath string, gitRoot string) (*Config, er
 	}
 
 	// Validate binary
-	if cfg.Binary != "terraform" && cfg.Binary != "tofu" {
+	if !ValidBinaries[cfg.Binary] {
 		return nil, fmt.Errorf("invalid binary '%s' in config: must be 'terraform' or 'tofu'", cfg.Binary)
 	}
 
@@ -206,6 +219,11 @@ func loadConfigFile(cfg *Config, configPath string, gitRoot string) (*Config, er
 		cfg.Test = &TestConfig{Engine: "terratest", Args: ""}
 	} else if cfg.Test.Engine == "" {
 		cfg.Test.Engine = "terratest"
+	}
+
+	// Validate test engine
+	if !ValidTestEngines[cfg.Test.Engine] {
+		return nil, fmt.Errorf("invalid test engine '%s' in config: must be 'terratest', 'terraform', or 'tofu'", cfg.Test.Engine)
 	}
 
 	cfg.ConfigPath = cleanPath
