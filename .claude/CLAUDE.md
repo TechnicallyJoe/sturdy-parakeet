@@ -39,7 +39,7 @@ e2e/           → End-to-end tests that build the binary and run against demo/
 # Build
 go build -o motf ./cmd/motf
 
-# Run all unit tests
+# Run all tests
 go test ./...
 
 # Run specific package tests
