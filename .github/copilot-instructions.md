@@ -270,7 +270,7 @@ The `/docs/` directory contains user-facing documentation that is automatically 
 
 ## Maintaining This Document
 
-This file and `CLAUDE.md` share the same project conventions. CLAUDE.md has additional Claude Code-specific guidance below. When updating project conventions, update **both files**.
+This file and `.claude/CLAUDE.md` share the same project conventions. `.claude/CLAUDE.md` has additional Claude Code-specific guidance below. When updating project conventions, update **both files**.
 
 Examples of patterns worth documenting:
 
