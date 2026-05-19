@@ -10,7 +10,7 @@
 cmd/
   motf/        → Main entrypoint (imports internal/cli)
 internal/
-  cli/         → Cobra CLI commands (root.go, init.go, fmt.go, validate.go, test.go, plan.go, list.go, get.go, describe.go, task.go)
+  cli/         → Cobra CLI commands and shared command helpers
   config/      → .motf.yml configuration loading and validation
   finder/      → Module discovery via recursive directory walking
   git/         → Git operations for change detection (uses go-git library)
