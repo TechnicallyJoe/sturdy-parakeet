@@ -1,3 +1,3 @@
-Run all unit tests:
+Run all tests:
 go test ./...
 Report results and highlight any failures.
