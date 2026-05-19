@@ -39,7 +39,7 @@ e2e/           → End-to-end tests that build the binary and run against demo/
 # Build
 go build -o motf ./cmd/motf
 
-# Run all tests
+# Run all tests (unit tests + e2e - requires terraform in PATH)
 go test ./...
 
 # Run specific package tests
@@ -293,8 +293,7 @@ Examples of patterns worth documenting:
 - Never guess at business logic -- ask
 
 ### Development Workflow
-- Run `go build -o motf ./cmd/motf` when you need to build the CLI binary
-- Run `go build ./...` after making changes as a compile check across all packages
+- Run `go build -o motf ./cmd/motf` after making changes to verify compilation
 - Run `go test ./...` to verify tests pass before considering work done
 - Run `golangci-lint run` to check for lint issues
 - Use `/test`, `/lint`, `/build`, `/e2e`, `/pr-ready` slash commands for common tasks

@@ -14,7 +14,7 @@
 
 - [ ] My code follows the project's code style
 - [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes (`go test ./...`)
+- [ ] New and existing unit tests pass locally with my changes (`go test ./...` - requires terraform in PATH)
 - [ ] I have updated the documentation accordingly
 - [ ] My commit messages follow the [Conventional Commits](https://www.conventionalcommits.org/) specification
 
