@@ -1,6 +1,6 @@
 module github.com/TechnicallyJoe/terraform-motf
 
-go 1.25.0
+go 1.25
 
 require (
 	github.com/go-git/go-git/v5 v5.19.0
